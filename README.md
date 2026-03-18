@@ -42,7 +42,7 @@
 
 ## 📥 下载
 
-前往 [**Releases**](https://github.com/your-username/miaoge-claw-desktop/releases) 页面下载最新版本：
+前往 [**Releases**](https://github.com/miaoge2026/miaoge-claw-desktop/releases/tag/v0.0.27-beta) 页面下载最新版本：
 
 | 平台 | 文件 | 大小 | 格式 |
 |------|------|------|------|
