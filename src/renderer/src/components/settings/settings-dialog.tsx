@@ -1,0 +1,437 @@
+
+
+import { useState, useEffect } from "react"
+import { ArrowLeft, Brain, Check, Languages, Info, Server, RefreshCw, Download, CheckCircle2, Loader2, FolderOpen, Copy, CheckCheck, HardDrive, AlertTriangle } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import {
+  LOCALE_OPTIONS,
+  getLocaleLabel,
+  useI18n,
+  type LocalePreference,
+} from "@/i18n"
+import { cn } from "@/lib/utils"
+import { useApp } from "@/store/app-context"
+import { ModelConfigPanel } from "./model-config"
+import { GatewayConfigPanel } from "./gateway-config-panel"
+import { OpenclawUpdatePanel } from "./openclaw-update-panel"
+
+interface SettingsDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+type SettingsSection = "models" | "gateway" | "storage" | "language" | "about"
+
+export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+  const { t } = useI18n()
+  const { state } = useApp()
+  const [activeSection, setActiveSection] = useState<SettingsSection>("models")
+  const navItems: { id: SettingsSection; label: string; icon: typeof Brain; showDot?: boolean }[] = [
+    { id: "models", label: t("settings.sections.models"), icon: Brain, showDot: !state.modelsConfigured },
+    { id: "gateway", label: t("settings.sections.gateway"), icon: Server },
+    { id: "storage", label: t("settings.sections.storage"), icon: HardDrive },
+    { id: "language", label: t("settings.sections.language"), icon: Languages },
+    { id: "about", label: "关于", icon: Info },
+  ]
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className="w-[80vw] !max-w-[1000px] h-[80vh] p-0 gap-0 overflow-hidden"
+      >
+        <div className="flex h-full overflow-hidden">
+          {/* Sidebar */}
+          <nav className="w-48 shrink-0 border-r bg-muted/30 flex flex-col">
+            <div className="px-3 py-3 border-b">
+              <button
+                onClick={() => onOpenChange(false)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                {t("settings.backToApp")}
+              </button>
+            </div>
+            <div className="flex-1 py-2 px-2 space-y-0.5">
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveSection(item.id)}
+                  className={cn(
+                    "flex items-center gap-2 w-full rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                    activeSection === item.id
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <div className="relative">
+                    <item.icon className="h-4 w-4" />
+                    {item.showDot && (
+                      <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-destructive" />
+                    )}
+                  </div>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+            <div className="px-5 py-4 border-b shrink-0">
+              <h2 className="text-base font-medium">
+                {navItems.find((n) => n.id === activeSection)?.label}
+              </h2>
+              {activeSection === "models" && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t("settings.descriptions.models")}
+                </p>
+              )}
+              {activeSection === "language" && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t("settings.descriptions.language")}
+                </p>
+              )}
+              {activeSection === "gateway" && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t("settings.descriptions.gateway")}
+                </p>
+              )}
+              {activeSection === "storage" && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t("settings.descriptions.storage")}
+                </p>
+              )}
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="px-5 py-4">
+                {activeSection === "models" && <ModelConfigPanel />}
+                {activeSection === "gateway" && <GatewayConfigPanel />}
+                {activeSection === "storage" && <StoragePanel />}
+                {activeSection === "language" && <LanguageSettingsPanel />}
+                {activeSection === "about" && <AboutPanel />}
+              </div>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function StoragePanel() {
+  const { t } = useI18n()
+  const [dataDirInfo, setDataDirInfo] = useState<{ dir: string; isCustom: boolean; defaultDir: string } | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    window.ipc.settingsGetDataDir().then(setDataDirInfo)
+  }, [])
+
+  const handleChange = async () => {
+    const result = await window.ipc.selectDirectory() as { ok: boolean; path?: string }
+    if (!result.ok || !result.path) return
+    const saveResult = await window.ipc.settingsSetDataDir({ dir: result.path }) as { ok: boolean; error?: string }
+    if (saveResult.ok) {
+      setDataDirInfo({ dir: result.path, isCustom: true, defaultDir: dataDirInfo?.defaultDir ?? '' })
+      setMessage({ type: 'success', text: t("settings.storage.saved") })
+    } else {
+      setMessage({ type: 'error', text: saveResult.error ?? t("settings.storage.failed") })
+    }
+  }
+
+  const handleRestore = async () => {
+    const result = await window.ipc.settingsResetDataDir() as { ok: boolean }
+    if (result.ok) {
+      setDataDirInfo(prev => prev ? { ...prev, dir: prev.defaultDir, isCustom: false } : null)
+      setMessage({ type: 'success', text: t("settings.storage.restored") })
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Current directory */}
+      <div className="rounded-lg border bg-muted/20 px-4 py-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">{t("settings.storage.currentDir")}</span>
+          {dataDirInfo && !dataDirInfo.isCustom && (
+            <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+              {t("settings.storage.default")}
+            </span>
+          )}
+        </div>
+        <p className="text-xs font-mono text-foreground/80 break-all leading-relaxed">
+          {dataDirInfo?.dir ?? <span className="text-muted-foreground/50 animate-pulse">…</span>}
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={handleChange} className="gap-2">
+          <FolderOpen className="h-3.5 w-3.5" />
+          {t("settings.storage.change")}
+        </Button>
+        {dataDirInfo?.isCustom && (
+          <Button variant="ghost" size="sm" onClick={handleRestore}>
+            {t("settings.storage.restoreDefault")}
+          </Button>
+        )}
+      </div>
+
+      {/* Restart hint */}
+      <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950/30 px-4 py-3">
+        <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500 mt-0.5 shrink-0" />
+        <p className="text-xs text-yellow-800 dark:text-yellow-200">{t("settings.storage.restartHint")}</p>
+      </div>
+
+      {/* Feedback message */}
+      {message && (
+        <div className={cn(
+          "rounded-lg border px-4 py-2.5 text-sm",
+          message.type === 'success'
+            ? "border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/30 dark:text-green-200"
+            : "border-destructive/30 bg-destructive/5 text-destructive"
+        )}>
+          {message.text}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LanguageSettingsPanel() {
+  const { locale, preference, setPreference, t } = useI18n()
+
+  const options: Array<{
+    value: LocalePreference
+    label: string
+    description?: string
+  }> = [
+    {
+      value: "system",
+      label: t("settings.language.system"),
+      description: t("settings.language.systemDescription"),
+    },
+    ...LOCALE_OPTIONS.map((option) => ({
+      value: option.code,
+      label: option.label,
+    })),
+  ]
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+        {t("settings.language.current")}: {getLocaleLabel(locale)}
+      </div>
+      <div className="space-y-2">
+        {options.map((option) => {
+          const active = preference === option.value
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setPreference(option.value)}
+              className={cn(
+                "flex w-full items-start justify-between rounded-lg border px-4 py-3 text-left transition-colors",
+                active
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:bg-accent"
+              )}
+            >
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-foreground">{option.label}</div>
+                {option.description && (
+                  <div className="text-xs text-muted-foreground">{option.description}</div>
+                )}
+              </div>
+              {active && (
+                <div className="rounded-full bg-primary/10 p-1 text-primary">
+                  <Check className="h-4 w-4" />
+                </div>
+              )}
+            </button>
+          )
+        })}
+      </div>
+      <Button variant="outline" onClick={() => setPreference("system")}>
+        {t("settings.language.system")}
+      </Button>
+    </div>
+  )
+}
+
+type UpdateState =
+  | { status: 'idle' }
+  | { status: 'checking' }
+  | { status: 'available'; version: string }
+  | { status: 'not-available' }
+  | { status: 'downloading'; progress: number }
+  | { status: 'downloaded'; version: string }
+  | { status: 'error'; error: string }
+
+function AboutPanel() {
+  const [updateState, setUpdateState] = useState<UpdateState>({ status: 'idle' })
+  const [appVersion, setAppVersion] = useState<string>('…')
+  const [paths, setPaths] = useState<{ appPath: string; userData: string; logs: string } | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.ipc.appVersion().then(setAppVersion)
+    window.ipc.appPaths().then(setPaths)
+  }, [])
+
+  const handleCopy = (key: string, value: string) => {
+    navigator.clipboard.writeText(value)
+    setCopied(key)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  const handleCheckUpdate = async () => {
+    setUpdateState({ status: 'checking' })
+    const unsubscribe = window.ipc.onAppUpdateStatus((s) => {
+      if (s.status === 'available' && s.version) {
+        // 不在这里 unsubscribe，继续监听后续的 downloading / downloaded 事件
+        setUpdateState({ status: 'available', version: s.version })
+      } else if (s.status === 'not-available') {
+        setUpdateState({ status: 'not-available' })
+        unsubscribe()
+      } else if (s.status === 'downloading') {
+        setUpdateState({ status: 'downloading', progress: s.progress ?? 0 })
+      } else if (s.status === 'downloaded' && s.version) {
+        setUpdateState({ status: 'downloaded', version: s.version })
+        unsubscribe()
+      } else if (s.status === 'error') {
+        setUpdateState({ status: 'error', error: s.error ?? '未知错误' })
+        unsubscribe()
+      }
+    })
+    await window.ipc.appCheckUpdate()
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* App info */}
+      <div className="rounded-lg border bg-muted/20 px-4 py-3 space-y-1">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">应用版本</span>
+          <span className="font-mono font-medium">{appVersion}</span>
+        </div>
+      </div>
+
+      {/* File paths */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium">文件目录</h3>
+        <div className="space-y-2">
+          {[
+            { key: 'appPath', label: '应用文件夹', value: paths?.appPath },
+            { key: 'userData', label: '数据文件夹', value: paths?.userData },
+            { key: 'logs', label: '日志文件夹', value: paths?.logs },
+          ].map(({ key, label, value }) => (
+            <div key={key} className="rounded-lg border bg-muted/20 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-xs text-muted-foreground">{label}</span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => value && handleCopy(key, value)}
+                    disabled={!value}
+                    className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+                    title="复制路径"
+                  >
+                    {copied === key
+                      ? <CheckCheck className="h-3.5 w-3.5 text-green-500" />
+                      : <Copy className="h-3.5 w-3.5" />
+                    }
+                  </button>
+                  <button
+                    onClick={() => value && window.ipc.appOpenPath(value)}
+                    disabled={!value}
+                    className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+                    title="在文件管理器中打开"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs font-mono text-foreground/80 break-all leading-relaxed">
+                {value ?? <span className="text-muted-foreground/50 animate-pulse">加载中…</span>}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium">软件更新</h3>
+
+        {updateState.status === 'idle' && (
+          <Button variant="outline" size="sm" onClick={handleCheckUpdate} className="gap-2">
+            <RefreshCw className="h-3.5 w-3.5" />
+            检查更新
+          </Button>
+        )}
+
+        {updateState.status === 'checking' && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            正在检查更新…
+          </div>
+        )}
+
+        {updateState.status === 'not-available' && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            已是最新版本
+            <button onClick={() => setUpdateState({ status: 'idle' })} className="ml-auto text-xs underline underline-offset-2">重新检查</button>
+          </div>
+        )}
+
+        {updateState.status === 'available' && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 px-4 py-3 space-y-2">
+            <p className="text-sm font-medium">发现新版本 v{updateState.version}</p>
+            <Button size="sm" onClick={() => { window.ipc.appDownloadUpdate(); setUpdateState({ status: 'downloading', progress: 0 }) }} className="gap-2">
+              <Download className="h-3.5 w-3.5" />
+              立即下载
+            </Button>
+          </div>
+        )}
+
+        {updateState.status === 'downloading' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">正在下载…</span>
+              <span className="font-mono text-xs">{updateState.progress}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-primary transition-all duration-300" style={{ width: `${updateState.progress}%` }} />
+            </div>
+          </div>
+        )}
+
+        {updateState.status === 'downloaded' && (
+          <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 px-4 py-3 space-y-2">
+            <p className="text-sm font-medium">v{updateState.version} 已下载完成</p>
+            <Button size="sm" onClick={() => window.ipc.appInstallUpdate()} className="gap-2">
+              重启并安装
+            </Button>
+          </div>
+        )}
+
+        {updateState.status === 'error' && (
+          <div className="space-y-2">
+            <p className="text-sm text-destructive">{updateState.error}</p>
+            <button onClick={() => setUpdateState({ status: 'idle' })} className="text-xs text-muted-foreground underline underline-offset-2">重试</button>
+          </div>
+        )}
+      </div>
+
+      {/* OpenClaw 更新 */}
+      <Separator />
+      <OpenclawUpdatePanel />
+    </div>
+  )
+}

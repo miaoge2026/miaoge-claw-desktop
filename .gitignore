@@ -1,0 +1,44 @@
+# 依赖
+node_modules/
+
+# 编译产物
+out/
+dist/
+build/
+
+# Node.js 二进制（80MB，平台特定，CI 里按需下载）
+resources/node/
+
+# MinGit（Windows 专用，CI 里按需下载）
+resources/git/
+
+# TypeScript 增量构建缓存
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+
+# Claude Code 私有会话文件（settings.local.json 含个人配置，不入库）
+# 用 .claude/* 而非 .claude/ 才能让 !.claude/skills/ 例外生效
+.claude/*
+# 项目级 skills 对所有贡献者可用，需要入库
+!.claude/skills/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 环境变量
+.env
+.env.*
+
+CLAUDE.md
+
+# npm 镜像配置（本地开发用，不入库）
+.npmrc
+
+# 本地备忘录
+NOTES.md
+README.assets/

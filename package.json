@@ -1,0 +1,148 @@
+{
+  "name": "easiest-claw-desktop",
+  "version": "0.0.27-beta",
+  "description": "喵哥Claw Desktop - OpenClaw GUI for 喵哥",
+  "main": "./out/main/index.js",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "brand": "node scripts/apply-branding.mjs",
+    "release": "node scripts/release.mjs",
+    "bundle:openclaw": "node scripts/bundle-openclaw.mjs",
+    "build:win": "npm run bundle:openclaw && npm run build && electron-builder --win",
+    "build:mac": "npm run bundle:openclaw && npm run build && electron-builder --mac",
+    "build:linux": "npm run bundle:openclaw && npm run build && electron-builder --linux",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.2.0",
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-switch": "^1.2.6",
+    "adm-zip": "^0.5.16",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "dexie": "^4.3.0",
+    "electron-updater": "^6.3.9",
+    "lucide-react": "^0.577.0",
+    "next-themes": "^0.4.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4.7.1",
+    "remark-gfm": "^4.0.1",
+    "shadcn": "^4.0.0",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.5.0",
+    "tw-animate-css": "^1.4.0",
+    "ws": "^8.19.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild",
+      "msw"
+    ]
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config-prettier": "^3.0.0",
+    "@electron-toolkit/eslint-config-ts": "^2.0.0",
+    "@electron-toolkit/tsconfig": "^2.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/adm-zip": "^0.5.7",
+    "@types/archiver": "^7.0.0",
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "archiver": "^7.0.1",
+    "electron": "^41.0.2",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^5.0.0",
+    "eslint": "^9.21.0",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4.0.9",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0"
+  },
+  "build": {
+    "appId": "com.miaoge.claw.desktop",
+    "productName": "喵哥Claw Desktop",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/node",
+        "to": "node",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "build/openclaw-core.zip",
+        "to": "openclaw-core.zip"
+      },
+      {
+        "from": "build/openclaw-mods-a.zip",
+        "to": "openclaw-mods-a.zip"
+      },
+      {
+        "from": "build/openclaw-mods-b.zip",
+        "to": "openclaw-mods-b.zip"
+      },
+      {
+        "from": "build/openclaw.version",
+        "to": "openclaw.version"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "resources/icon.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "extraResources": [
+        {
+          "from": "resources/git/win",
+          "to": "git",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "installerIcon": "resources/icon.ico",
+      "uninstallerIcon": "resources/icon.ico",
+      "installerHeaderIcon": "resources/icon.ico",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "perMachine": false,
+      "include": "resources/installer.nsh"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "resources/icon.icns",
+      "artifactName": "${productName}-${version}.${ext}"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "resources/icon.png",
+      "artifactName": "${productName}-${version}.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Zmmmmy",
+      "repo": "easiest-claw"
+    }
+  }
+}
