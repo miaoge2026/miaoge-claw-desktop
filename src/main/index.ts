@@ -4,6 +4,7 @@ import { spawn } from 'child_process'
 import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { StructuredLogger } from './lib/logger'
+import { windowsCompat } from './lib/windows-compat'
 import { registerAllIpcHandlers } from './ipc'
 import { syncDataDirToRegistry } from './ipc/settings'
 import { startRuntime, stopRuntime } from './gateway/runtime'
@@ -46,6 +47,19 @@ class MiaogeClawApp {
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
     })
+
+    // Windows compatibility check
+    if (process.platform === 'win32') {
+      this.logger.info('Performing Windows compatibility checks...')
+      const compatResult = await windowsCompat.performAllChecks()
+      if (!compatResult.passed) {
+        this.logger.warn('Windows compatibility issues detected', {
+          issues: compatResult.issues,
+          recommendations: compatResult.recommendations,
+        })
+        await windowsCompat.showCompatibilityReport(compatResult)
+      }
+    }
 
     // Create main window
     this.mainWindow = this.createWindow()
