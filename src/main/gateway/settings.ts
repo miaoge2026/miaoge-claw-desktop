@@ -17,6 +17,7 @@ export type AppSettings = {
   gateway: { url: string; token: string } | null
   avatars: Record<string, Record<string, string>>
   customDataDir?: string
+  dataLocationSelected?: boolean
 }
 
 // ── Defaults read from ~/.openclaw/openclaw.json ──────────────────────────────
@@ -72,6 +73,7 @@ export const loadSettings = (): AppSettings => {
     gateway: fromFile.gateway ?? null,
     avatars: fromFile.avatars ?? {},
     customDataDir: typeof fromFile.customDataDir === 'string' ? fromFile.customDataDir : undefined,
+    dataLocationSelected: fromFile.dataLocationSelected === true,
   }
 }
 

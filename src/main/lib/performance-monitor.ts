@@ -4,6 +4,7 @@
  */
 
 import { performance } from 'perf_hooks'
+import { app } from 'electron'
 import { logger } from './logger'
 
 interface PerformanceMetric {
@@ -245,15 +246,14 @@ export const performanceMonitor = new PerformanceMonitor({
 if (process.env.NODE_ENV === 'development') {
   // 监控关键启动阶段
   performanceMonitor.start('app_init')
-  
-  // 监控窗口创建
-  const originalCreateWindow = BrowserWindow.prototype.constructor
-  BrowserWindow.prototype.constructor = function (...args: any[]) {
-    performanceMonitor.start('window_create')
-    const result = originalCreateWindow.apply(this, args)
-    performanceMonitor.end('window_create')
-    return result
-  }
+
+  // 监控窗口创建事件（避免修改 BrowserWindow 原型导致不稳定行为）
+  app.on('browser-window-created', () => {
+    const metricId = performanceMonitor.start('window_create')
+    if (metricId) {
+      performanceMonitor.end(metricId)
+    }
+  })
 }
 
 export default performanceMonitor
