@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](https://github.com/your-username/miaoge-claw-desktop/releases)
 
-[下载安装包](https://github.com/miaoge2026/miaoge-claw-desktop/releases/tag/v0.0.27-beta) · [开发指南](#开发) · [贡献指南](#贡献)
+[下载安装包](https://github.com/miaoge2026/miaoge-claw-desktop/releases/tag/v1.0.0) · [开发指南](#开发) · [贡献指南](#贡献)
 
 </div>
 
@@ -42,7 +42,7 @@
 
 ## 📥 下载
 
-前往 [**Releases**](https://github.com/miaoge2026/miaoge-claw-desktop/releases/tag/v0.0.27-beta) 页面下载最新版本：
+前往 [**Releases**](https://github.com/miaoge2026/miaoge-claw-desktop/releases/tag/v1.0.0) 页面下载最新版本：
 
 | 平台 | 文件 | 大小 | 格式 |
 |------|------|------|------|
