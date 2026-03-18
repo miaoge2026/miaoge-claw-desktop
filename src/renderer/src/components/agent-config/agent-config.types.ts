@@ -3,8 +3,7 @@
  * 定义Agent配置相关的类型和接口
  */
 
-import type { Agent } from "@/types"
-import type { CronJob, CronSchedule } from "@/types/cron"
+import type { CronSchedule } from "@/types/cron"
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 
@@ -120,32 +119,38 @@ export function sessionDisplayName(s: AgentSession, agentId: string): string {
 
 export function parseSessions(raw: unknown): AgentSession[] {
   if (!Array.isArray(raw)) return []
-  return raw.map((r: any) => ({
-    sessionKey: r.key || r.sessionKey || "",
-    sessionId: r.sessionId,
-    updatedAt: r.updatedAt ? Date.parse(r.updatedAt) : undefined,
-    label: r.label,
-    displayName: r.displayName,
-    channel: r.channel,
-    subject: r.subject,
-    model: r.model,
-    inputTokens: r.inputTokens,
-    outputTokens: r.outputTokens,
-    contextTokens: r.contextTokens,
-    kind: r.kind,
-    lastMessagePreview: r.lastMessagePreview,
-  }))
+  return raw.map((entry) => {
+    const r = entry as Record<string, unknown>
+    return {
+      sessionKey: String(r.key ?? r.sessionKey ?? ""),
+      sessionId: typeof r.sessionId === "string" ? r.sessionId : undefined,
+      updatedAt: typeof r.updatedAt === "string" ? Date.parse(r.updatedAt) : undefined,
+      label: typeof r.label === "string" ? r.label : undefined,
+      displayName: typeof r.displayName === "string" ? r.displayName : undefined,
+      channel: typeof r.channel === "string" ? r.channel : undefined,
+      subject: typeof r.subject === "string" ? r.subject : undefined,
+      model: typeof r.model === "string" ? r.model : undefined,
+      inputTokens: typeof r.inputTokens === "number" ? r.inputTokens : undefined,
+      outputTokens: typeof r.outputTokens === "number" ? r.outputTokens : undefined,
+      contextTokens: typeof r.contextTokens === "number" ? r.contextTokens : undefined,
+      kind: typeof r.kind === "string" ? r.kind : undefined,
+      lastMessagePreview: typeof r.lastMessagePreview === "string" ? r.lastMessagePreview : undefined,
+    }
+  })
 }
 
 export function parseHistoryMessages(raw: unknown): HistoryMsg[] {
   if (!Array.isArray(raw)) return []
-  return raw.map((r: any) => ({
-    id: r.id || r.messageId || "",
-    role: r.role || "unknown",
-    content: extractText(r.content),
-    timestamp: r.timestamp ? Date.parse(r.timestamp) : Date.now(),
-    attachments: r.attachments,
-  }))
+  return raw.map((entry) => {
+    const r = entry as Record<string, unknown>
+    return {
+      id: String(r.id ?? r.messageId ?? ""),
+      role: typeof r.role === "string" ? r.role : "unknown",
+      content: extractText(r.content),
+      timestamp: typeof r.timestamp === "string" ? Date.parse(r.timestamp) : Date.now(),
+      attachments: Array.isArray(r.attachments) ? (r.attachments as Array<{ type: string; name: string }>) : undefined,
+    }
+  })
 }
 
 export function extractText(content: unknown): string {
@@ -158,12 +163,15 @@ export function extractText(content: unknown): string {
 
 export function parseSkillsResult(raw: unknown): Skill[] {
   if (!Array.isArray(raw)) return []
-  return raw.map((r: any) => ({
-    name: r.name || "",
-    description: r.description,
-    version: r.version,
-    enabled: r.enabled !== false,
-  }))
+  return raw.map((entry) => {
+    const r = entry as Record<string, unknown>
+    return {
+      name: typeof r.name === "string" ? r.name : "",
+      description: typeof r.description === "string" ? r.description : undefined,
+      version: typeof r.version === "string" ? r.version : undefined,
+      enabled: r.enabled !== false,
+    }
+  })
 }
 
 export const TABS = [

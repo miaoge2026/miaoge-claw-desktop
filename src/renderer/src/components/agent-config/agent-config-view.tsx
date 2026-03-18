@@ -1,162 +1,122 @@
-/**
- * Agent Configuration View Component
- * 智能体配置主组件，管理多个Tab页面
- */
-
-import { useEffect, useState, useCallback } from "react"
-import { 
-  AlertCircle,
-  Bot,
-  Brain,
-  Calendar,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  Copy,
-  FileText,
-  Info,
-  Loader2,
-  Play,
-  RefreshCw,
-  RotateCcw,
-  Save,
-  Trash2,
-  XCircle,
-  Zap,
-} from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { Bot, RefreshCw } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
-import { toast } from "sonner"
 import { useApp } from "@/store/app-context"
-import { getAgentAvatarUrl, useAvatarVersion } from "@/lib/avatar"
 import type { Agent } from "@/types"
-import type { CronJob, CronSchedule } from "@/types/cron"
-import { TABS } from "./agent-config.types"
 import { AgentOverviewTab } from "./AgentOverviewTab"
 import { AgentSessionsTab } from "./AgentSessionsTab"
+import { TABS, type TabId } from "./agent-config.types"
 
-/**
- * Agent Configuration View - 智能体配置主组件
- * 管理智能体的多个配置页面：概览、会话、技能、定时任务、记忆
- */
 export function AgentConfigView() {
-  const { state, dispatch } = useApp()
+  const { state } = useApp()
   const [activeTab, setActiveTab] = useState<TabId>("overview")
   const [refreshTick, setRefreshTick] = useState(0)
-  
-  // 获取当前选中的智能体
-  const agent = state.selectedAgent ? state.agents.find(a => a.id === state.selectedAgent) : null
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
 
-  // 刷新当前Tab
-  const handleRefresh = useCallback(() => {
-    setRefreshTick(prev => prev + 1)
-  }, [])
+  useEffect(() => {
+    if (state.agents.length === 0) {
+      setSelectedAgentId(null)
+      return
+    }
 
-  // 如果未选择智能体，显示空状态
-  if (!agent) {
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        请选择一个智能体进行配置
-      </div>
-    )
-  }
+    if (!selectedAgentId || !state.agents.some((agent) => agent.id === selectedAgentId)) {
+      setSelectedAgentId(state.agents[0].id)
+    }
+  }, [selectedAgentId, state.agents])
 
-  // 渲染当前活动的Tab
+  const agent = useMemo(
+    () => state.agents.find((item) => item.id === selectedAgentId) ?? null,
+    [selectedAgentId, state.agents]
+  )
+
+  const agentConversationCount = (targetAgent: Agent) =>
+    state.conversations.filter((conversation) => conversation.members.includes(targetAgent.id)).length
+
   const renderActiveTab = () => {
+    if (!agent) return null
+
     switch (activeTab) {
       case "overview":
         return (
-          <AgentOverviewTab 
-            agent={agent} 
-            cronCount={state.cronJobs.filter(job => job.agentId === agent.id).length}
-            sessionCount={state.sessions.filter(s => s.agentId === agent.id).length}
-          />
+          <AgentOverviewTab agent={agent} cronCount={0} sessionCount={agentConversationCount(agent)} />
         )
-      
       case "sessions":
-        return (
-          <AgentSessionsTab 
-            agent={agent} 
-            refreshTick={refreshTick}
-          />
-        )
-      
+        return <AgentSessionsTab agent={agent} refreshTick={refreshTick} />
       case "memory":
-        return (
-          <div className="p-6">
-            <h2 className="text-lg font-semibold mb-4">记忆管理</h2>
-            <p className="text-muted-foreground">记忆管理功能开发中...</p>
-          </div>
-        )
-      
+        return <div className="p-6 text-muted-foreground">记忆管理功能开发中...</div>
       case "skills":
-        return (
-          <div className="p-6">
-            <h2 className="text-lg font-semibold mb-4">技能配置</h2>
-            <p className="text-muted-foreground">技能配置功能开发中...</p>
-          </div>
-        )
-      
+        return <div className="p-6 text-muted-foreground">技能配置功能开发中...</div>
       case "cron":
-        return (
-          <div className="p-6">
-            <h2 className="text-lg font-semibold mb-4">定时任务</h2>
-            <p className="text-muted-foreground">定时任务功能开发中...</p>
-          </div>
-        )
-      
+        return <div className="p-6 text-muted-foreground">定时任务功能开发中...</div>
       default:
         return null
     }
   }
 
+  if (state.agents.length === 0) {
+    return <div className="flex h-full items-center justify-center text-muted-foreground">当前没有可配置的智能体</div>
+  }
+
   return (
-    <div className="flex flex-col h-full">
-      {/* 头部：智能体信息和Tab导航 */}
-      <div className="border-b bg-card">
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-4">
+    <div className="flex h-full">
+      <div className="flex w-72 flex-col border-r bg-card">
+        <div className="border-b p-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">{agent.name}</h2>
-              <div className="h-2 w-2 rounded-full bg-green-500" />
+              <h2 className="font-semibold">Agent 配置</h2>
             </div>
-            <Badge variant="outline">ID: {agent.id}</Badge>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Button onClick={handleRefresh} size="sm" variant="ghost">
-              <RefreshCw className="h-4 w-4 mr-2" />
+            <Button size="sm" variant="ghost" onClick={() => setRefreshTick((value) => value + 1)}>
+              <RefreshCw className="mr-2 h-4 w-4" />
               刷新
             </Button>
-            <Button size="sm" variant="ghost">
-              <FileText className="h-4 w-4 mr-2" />
-              查看日志
-            </Button>
           </div>
         </div>
 
-        {/* Tab导航 */}
-        <div className="flex items-center gap-1 p-2">
-          {TABS.map((tab) => (
-            <Button
-              key={tab.id}
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "flex-1",
-                activeTab === tab.id && "bg-accent text-accent-foreground"
-              )}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </Button>
-          ))}
-        </div>
+        <ScrollArea className="flex-1">
+          <div className="space-y-2 p-3">
+            {state.agents.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={cn(
+                  "w-full rounded-lg border p-3 text-left transition-colors",
+                  selectedAgentId === item.id ? "border-primary bg-accent" : "hover:bg-accent/50"
+                )}
+                onClick={() => setSelectedAgentId(item.id)}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate font-medium">{item.name}</p>
+                  <Badge variant="outline">{item.status}</Badge>
+                </div>
+                <p className="mt-1 truncate text-xs text-muted-foreground">{item.role || "未设置角色"}</p>
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
       </div>
 
-      {/* 内容区域 */}
-      <div className="flex-1 overflow-hidden">
-        {renderActiveTab()}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="border-b bg-card p-2">
+          <div className="flex items-center gap-1">
+            {TABS.map((tab) => (
+              <Button
+                key={tab.id}
+                variant="ghost"
+                size="sm"
+                className={cn("flex-1", activeTab === tab.id && "bg-accent text-accent-foreground")}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden">{renderActiveTab()}</div>
       </div>
     </div>
   )

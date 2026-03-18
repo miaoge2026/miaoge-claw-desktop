@@ -3,8 +3,8 @@
  * 提供Windows平台特定的兼容性检查和处理
  */
 
-import { app, dialog, shell } from 'electron'
-import { exec, spawn } from 'child_process'
+import { app, dialog } from 'electron'
+import { exec } from 'child_process'
 import { promisify } from 'util'
 import { logger } from './logger'
 
@@ -180,7 +180,9 @@ export class WindowsCompatibilityChecker {
       this.logger.info('VC++运行库检查通过')
       return { passed: true, issue: '', recommendation: '' }
     } catch (error) {
-      this.logger.warn('VC++运行库检查失败', error)
+      this.logger.warn('VC++运行库检查失败', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       // 不阻止启动，只是警告
       return {
         passed: true,
