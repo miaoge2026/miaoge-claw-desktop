@@ -3,8 +3,7 @@
  * 提供用户体验增强功能
  */
 
-import { useState, useEffect, useCallback } from 'react'
-import { toast } from './toast'
+import React, { useState, useEffect, useCallback } from 'react'
 
 // ── Animation Utilities ────────────────────────────────────────────────────────
 
@@ -24,13 +23,13 @@ export const fadeIn = (config: AnimationConfig) => ({
 
 export const slideIn = (config: AnimationConfig & { direction: 'up' | 'down' | 'left' | 'right' }) => {
   const distance = 20
-  const directions = {
-    up: { y: -distance },
-    down: { y: distance },
-    left: { x: -distance },
-    right: { x: distance },
+  const directions: Record<'up' | 'down' | 'left' | 'right', { x: number; y: number }> = {
+    up: { x: 0, y: -distance },
+    down: { x: 0, y: distance },
+    left: { x: -distance, y: 0 },
+    right: { x: distance, y: 0 },
   }
-  
+
   return {
     from: { transform: `translate(${directions[config.direction].x}px, ${directions[config.direction].y}px)`, opacity: 0 },
     to: { transform: 'translate(0, 0)', opacity: 1 },
@@ -151,7 +150,7 @@ export function announceToScreenReader(message: string) {
 export function focusFirstError(errors: Record<string, string>) {
   const firstErrorKey = Object.keys(errors)[0]
   if (firstErrorKey) {
-    const element = document.querySelector(`[data-error="${firstErrorKey}"]`)
+    const element = document.querySelector<HTMLElement>(`[data-error="${firstErrorKey}"]`)
     if (element) {
       element.setAttribute('tabindex', '-1')
       element.focus()
@@ -209,17 +208,17 @@ export function useFormValidation<T extends Record<string, any>>(
   const [touched, setTouched] = useState<Record<keyof T, boolean>>({} as any)
 
   const validateAll = useCallback(() => {
-    const newErrors: Record<keyof T, string | null> = {} as any
-    let isValid = true
+    const newErrors: Partial<Record<keyof T, string | null>> = {}
+    let allValid = true
 
-    (Object.keys(validationRules) as Array<keyof T>).forEach((key) => {
+    for (const key of Object.keys(validationRules) as Array<keyof T>) {
       const error = validateField(values[key], validationRules[key])
       newErrors[key] = error
-      if (error) isValid = false
-    })
+      if (error) allValid = false
+    }
 
-    setErrors(newErrors)
-    return isValid
+    setErrors(newErrors as Record<keyof T, string | null>)
+    return allValid
   }, [values, validationRules])
 
   const handleChange = useCallback((field: keyof T, value: any) => {
@@ -427,7 +426,4 @@ export default {
   
   // Error Handling
   ErrorBoundary,
-  
-  // Gesture
-  useSwipeGesture,
 }

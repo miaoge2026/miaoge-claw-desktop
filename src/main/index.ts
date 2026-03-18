@@ -1,7 +1,7 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { spawn } from 'child_process'
-import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs'
+import { existsSync, writeFileSync, readFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { StructuredLogger } from './lib/logger'
 import { windowsCompat } from './lib/windows-compat'
@@ -14,6 +14,8 @@ import { migrateDataDirIfNeeded } from './lib/data-dir'
 import { FIREWALL_RULE_NAME, APP_ID, APP_NAME } from '@shared/branding'
 import { initAppUpdater, registerAppUpdaterHandlers } from './app-updater'
 import { patchSettings } from './gateway/settings'
+
+const shutdownLogger = new StructuredLogger({ component: 'Shutdown' })
 
 /**
  * Main Application Class for 喵哥Claw Desktop
@@ -545,14 +547,14 @@ app.on('window-all-closed', async () => {
 
 // Graceful shutdown handlers
 process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, shutting down gracefully')
+  shutdownLogger.info('SIGTERM received, shutting down gracefully')
   const app = new MiaogeClawApp()
   await app.stop()
   process.exit(0)
 })
 
 process.on('SIGINT', async () => {
-  logger.info('SIGINT received, shutting down gracefully')
+  shutdownLogger.info('SIGINT received, shutting down gracefully')
   const app = new MiaogeClawApp()
   await app.stop()
   process.exit(0)

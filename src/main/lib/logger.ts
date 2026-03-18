@@ -32,17 +32,20 @@ interface LogMeta {
 class PerformanceTracker {
   private start: number
 
-  constructor(private operation: string) {
+  constructor(
+    private operation: string,
+    private meta?: LogMeta
+  ) {
     this.start = Date.now()
   }
 
   end(success: boolean = true, error?: unknown): void {
     const duration = Date.now() - this.start
-    const logger = new StructuredLogger({ operation })
+    const logger = new StructuredLogger({ operation: this.operation, ...this.meta })
     if (success) {
-      logger.info(`${this.operation} completed in ${duration}ms`)
+      logger.info(`${this.operation} completed in ${duration}ms`, { duration })
     } else {
-      logger.error(`${this.operation} failed after ${duration}ms`, error)
+      logger.error(`${this.operation} failed after ${duration}ms`, error, { duration })
     }
   }
 }
@@ -133,7 +136,7 @@ class StructuredLogger {
    * Track performance of synchronous operations
    */
   trackPerformance<T>(operation: string, fn: () => T, meta?: LogMeta): T {
-    const tracker = new PerformanceTracker(operation)
+    const tracker = new PerformanceTracker(operation, meta)
     try {
       const result = fn()
       tracker.end(true)
@@ -148,7 +151,7 @@ class StructuredLogger {
    * Track performance of asynchronous operations
    */
   async trackPerformanceAsync<T>(operation: string, fn: () => Promise<T>, meta?: LogMeta): Promise<T> {
-    const tracker = new PerformanceTracker(operation)
+    const tracker = new PerformanceTracker(operation, meta)
     try {
       const result = await fn()
       tracker.end(true)
@@ -171,6 +174,13 @@ class StructuredLogger {
    */
   getContext(): LogMeta {
     return { ...this.context }
+  }
+
+  /**
+   * Get resolved log file path
+   */
+  getPath(): string {
+    return getLogPath()
   }
 }
 
@@ -205,10 +215,11 @@ function rotateIfNeeded(filePath: string): void {
  * Legacy logger interface for backward compatibility
  */
 const legacyLogger = {
-  info: (msg: string) => new StructuredLogger({}).info(msg),
-  warn: (msg: string) => new StructuredLogger({}).warn(msg),
-  error: (msg: string) => new StructuredLogger({}).error(msg),
+  info: (msg: string, meta?: LogMeta) => new StructuredLogger({}).info(msg, meta),
+  warn: (msg: string, meta?: LogMeta) => new StructuredLogger({}).warn(msg, meta),
+  error: (msg: string, error?: Error | unknown, meta?: LogMeta) => new StructuredLogger({}).error(msg, error, meta),
   getPath: () => getLogPath(),
+  child: (context: LogMeta) => new StructuredLogger(context),
 }
 
 export { StructuredLogger, PerformanceTracker, legacyLogger }

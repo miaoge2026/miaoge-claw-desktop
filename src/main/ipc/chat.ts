@@ -18,7 +18,7 @@ export class ChatIpcHandlers {
    */
   register(ipcMain: IpcMain): void {
     // Send a message to an agent
-    ipcMain.handle('chat:send', (event, params) => {
+    ipcMain.handle('chat:send', (_event, params) => {
       const { agentId, message, sessionKey, idempotencyKey, attachments } = params as {
         agentId: string
         message: string
@@ -63,7 +63,7 @@ export class ChatIpcHandlers {
     })
 
     // Abort an in-flight run
-    ipcMain.handle('chat:abort', async (event, params) => {
+    ipcMain.handle('chat:abort', async (_event, params) => {
       const { sessionKey, runId } = params as { sessionKey?: string; runId?: string }
 
       if (!sessionKey && !runId) {
@@ -83,7 +83,7 @@ export class ChatIpcHandlers {
     })
 
     // Load chat history for a session
-    ipcMain.handle('chat:history', async (event, params) => {
+    ipcMain.handle('chat:history', async (_event, params) => {
       const { agentId, sessionKey: providedSessionKey } = params as { agentId: string; sessionKey?: string }
       const sessionKey = providedSessionKey ?? `agent:${agentId}:main`
 
@@ -95,7 +95,7 @@ export class ChatIpcHandlers {
     })
 
     // List sessions with filtering and pagination
-    ipcMain.handle('sessions:list', async (event, params) => {
+    ipcMain.handle('sessions:list', async (_event, params) => {
       return this.logger.trackPerformanceAsync(
         'sessions_list',
         () => this.gatewayClient.request('sessions.list', params ?? {}, { retry: true }),
@@ -104,7 +104,7 @@ export class ChatIpcHandlers {
     })
 
     // Reset a session (clear history)
-    ipcMain.handle('sessions:reset', async (event, params) => {
+    ipcMain.handle('sessions:reset', async (_event, params) => {
       const { sessionKey } = params as { sessionKey: string }
 
       if (!sessionKey) {
@@ -124,7 +124,7 @@ export class ChatIpcHandlers {
     })
 
     // Patch session settings (e.g. thinking/verbose toggles)
-    ipcMain.handle('sessions:patch', async (event, params) => {
+    ipcMain.handle('sessions:patch', async (_event, params) => {
       const { sessionKey, patch } = params as { sessionKey: string; patch: Record<string, unknown> }
 
       if (!sessionKey || !patch || Object.keys(patch).length === 0) {
@@ -144,7 +144,7 @@ export class ChatIpcHandlers {
     })
 
     // Get session status
-    ipcMain.handle('sessions:status', async (event, params) => {
+    ipcMain.handle('sessions:status', async (_event, params) => {
       const { sessionKey } = params as { sessionKey: string }
 
       if (!sessionKey) {

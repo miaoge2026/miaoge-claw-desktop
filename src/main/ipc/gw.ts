@@ -49,13 +49,6 @@ export class GatewayClient {
           return { ok: false, error: 'Gateway not connected.', details: { method } }
         }
 
-        const requestConfig = {
-          method,
-          params,
-          timeout,
-          idempotencyKey,
-        }
-
         try {
           const result = await this.executeWithRetry(
             () => adapter.request<T>(method, params),
