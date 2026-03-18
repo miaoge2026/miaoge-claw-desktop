@@ -19,7 +19,7 @@
   "dependencies": {
     "@base-ui/react": "^1.2.0",
     "@electron-toolkit/preload": "^3.0.1",
-    "@electron-toolkit/utils": "^3.0.0",
+    "@electron-toolkit/utils": "^4.0.0",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-switch": "^1.2.6",
     "adm-zip": "^0.5.16",
