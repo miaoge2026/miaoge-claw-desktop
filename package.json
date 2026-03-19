@@ -1,6 +1,6 @@
 {
   "name": "easiest-claw-desktop",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "喵哥Claw Desktop - OpenClaw GUI for 喵哥",
   "main": "./out/main/index.js",
   "private": true,
