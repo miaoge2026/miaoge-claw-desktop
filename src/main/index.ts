@@ -1,260 +1,203 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
+import { app, BrowserWindow, Menu, dialog } from 'electron'
 import { join } from 'path'
-import { spawn } from 'child_process'
-import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { StructuredLogger } from './lib/logger'
-import { registerAllIpcHandlers } from './ipc'
-import { syncDataDirToRegistry } from './ipc/settings'
-import { startRuntime, stopRuntime } from './gateway/runtime'
-import { autoSpawnBundledOpenclaw, addGatewayLogListener, getGatewayLogBuffer } from './gateway/bundled-openclaw'
-import { PerformanceMonitor } from './lib/performance-monitor'
-import { AutoUpdater } from './lib/auto-updater'
-import { startupOptimizer } from './lib/startup-optimizer'
-import { WindowsErrorHandler } from './lib/error-handler'
+import { electronApp, optimizer } from '@electron-toolkit/utils'
+import { logger } from './lib/logger'
+import { WindowsCompat } from './lib/windows-compat'
+import { setupUpdater } from './lib/auto-updater'
+import { setupPerformanceMonitor } from './lib/performance-monitor'
 
-// 应用常量定义
-const APP_NAME = '喵哥Claw Desktop'
-const APP_ID = 'com.miaoge.claw.desktop'
-const APP_VERSION = app.getVersion()
+// 创建Windows兼容性处理实例
+const windowsCompat = new WindowsCompat()
 
 /**
- * 主应用类 - 负责应用的生命周期管理
+ * 初始化Windows兼容性检查
  */
-class MiaogeClawApp {
-  private logger: StructuredLogger
-  private performanceMonitor: PerformanceMonitor
-  private autoUpdater: AutoUpdater
-  private mainWindow: BrowserWindow | null
-  private isDevelopment: boolean
-
-  constructor() {
-    this.logger = new StructuredLogger()
-    this.performanceMonitor = new PerformanceMonitor()
-    this.autoUpdater = new AutoUpdater()
-    this.mainWindow = null
-    this.isDevelopment = is.dev
+async function initializeWindowsCompat(): Promise<void> {
+  if (process.platform !== 'win32') {
+    return
   }
 
-  /**
-   * 应用启动入口
-   */
-  async start(): Promise<void> {
-    const startupTimer = this.performanceMonitor.startTimer('app-startup')
+  try {
+    // 检查并安装VC++运行库
+    const vcppInstalled = await windowsCompat.checkAndInstallVCppRuntime()
     
-    try {
-      this.logStartupInfo()
+    if (!vcppInstalled) {
+      throw new Error('VC++运行库安装失败')
+    }
+    
+    logger.info('✓ Windows兼容性检查通过')
+    
+    // 检查系统要求
+    const sysCheck = await windowsCompat.checkSystemRequirements()
+    if (!sysCheck.meetsRequirements) {
+      const errorMessage = `系统要求不满足:\n${sysCheck.issues.join('\n')}`
+      logger.warn(errorMessage)
       
-      // 初始化错误处理
-      WindowsErrorHandler.initialize()
-      
-      // 确保单实例运行
-      if (!this.ensureSingleInstance()) {
-        return
-      }
-
-      // 设置应用模型ID
-      electronApp.setAppUserModelId(APP_ID)
-
-      // 配置菜单栏快捷键
-      this.setupMenuShortcuts()
-
-      // 优化启动流程
-      await startupOptimizer.optimizeStartup()
-
-      // 创建主窗口
-      this.mainWindow = this.createWindow()
-
-      // 注册IPC处理器
-      this.registerIpcHandlers()
-
-      // 初始化性能监控
-      this.initializePerformanceMonitoring()
-
-      // 初始化自动更新（生产环境）
-      if (!this.isDevelopment) {
-        this.initializeAutoUpdater()
-      }
-
-      // 记录启动成功
-      this.logStartupSuccess(startupTimer)
-
-    } catch (error) {
-      this.handleStartupError(error)
-      throw error
+      dialog.showErrorBox(
+        '系统要求不满足',
+        '请检查系统配置后再试。\n\n' + sysCheck.issues.join('\n')
+      )
     }
-  }
-
-  /**
-   * 记录启动信息
-   */
-  private logStartupInfo(): void {
-    this.logger.info(`🚀 ${APP_NAME} starting - v${APP_VERSION} pid=${process.pid} platform=${process.platform}`)
-    this.logger.info(`📁 Log file: ${this.logger.getPath()}`)
-    this.logger.info(`🔧 Development mode: ${this.isDevelopment}`)
-  }
-
-  /**
-   * 确保单实例运行
-   */
-  private ensureSingleInstance(): boolean {
-    if (!app.requestSingleInstanceLock()) {
-      this.logger.warn('应用已在运行，退出当前实例')
-      app.quit()
-      return false
-    }
-    return true
-  }
-
-  /**
-   * 设置菜单栏快捷键
-   */
-  private setupMenuShortcuts(): void {
-    app.on('browser-window-created', (_, window) => {
-      optimizer.watchWindowShortcuts(window)
-    })
-  }
-
-  /**
-   * 创建主窗口
-   */
-  private createWindow(): BrowserWindow {
-    const window = new BrowserWindow({
-      width: 1200,
-      height: 800,
-      minWidth: 800,
-      minHeight: 600,
-      show: false,
-      autoHideMenuBar: false,
-      titleBarStyle: 'default',
-      icon: join(__dirname, '../../resources/icon.png'),
-      webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
-        sandbox: false,
-        contextIsolation: true,
-        nodeIntegration: false
-      }
-    })
-
-    // 加载应用页面
-    window.loadFile(join(__dirname, '../renderer/index.html'))
-
-    // 显示窗口（页面加载完成后）
-    window.once('ready-to-show', () => {
-      window.show()
-      if (this.isDevelopment) {
-        window.webContents.openDevTools()
-      }
-    })
-
-    // 处理窗口关闭
-    window.on('closed', () => {
-      this.mainWindow = null
-    })
-
-    return window
-  }
-
-  /**
-   * 注册IPC处理器
-   */
-  private registerIpcHandlers(): void {
-    if (!this.mainWindow) {
-      throw new Error('主窗口未创建，无法注册IPC处理器')
-    }
-    registerAllIpcHandlers(this.mainWindow, this.logger)
-  }
-
-  /**
-   * 初始化性能监控
-   */
-  private initializePerformanceMonitoring(): void {
-    this.performanceMonitor.printReport()
+  } catch (error) {
+    logger.error('Windows兼容性检查失败:', error)
     
-    // 定期清理旧的性能数据
-    setInterval(() => {
-      this.performanceMonitor.cleanup()
-    }, 24 * 60 * 60 * 1000) // 每天清理一次
-  }
-
-  /**
-   * 初始化自动更新
-   */
-  private initializeAutoUpdater(): void {
-    this.autoUpdater.initialize()
-  }
-
-  /**
-   * 记录启动成功
-   */
-  private logStartupSuccess(timer: () => void): void {
-    timer()
-    const report = this.performanceMonitor.getPerformanceReport()
-    this.logger.info(`✅ 应用启动成功，总耗时: ${report.startupTime.toFixed(2)}ms`)
-  }
-
-  /**
-   * 处理启动错误
-   */
-  private handleStartupError(error: Error): void {
-    this.logger.error('应用启动失败:', error)
-    
-    // 显示错误对话框
+    // 显示友好的错误信息
     dialog.showErrorBox(
-      '喵哥Claw Desktop 启动失败',
-      `错误: ${error.message}\n\n请尝试以下解决方案：\n1. 重新安装应用\n2. 安装Visual C++运行库\n3. 以管理员身份运行\n4. 检查系统更新\n\n如问题持续，请提交到GitHub Issues。`
+      '启动失败',
+      '无法完成Windows兼容性检查。\n\n' +
+      '可能的原因:\n' +
+      '1. 没有管理员权限\n' +
+      '2. 系统版本过低\n' +
+      '3. 磁盘空间不足\n\n' +
+      '请确保您有管理员权限，并检查系统要求后再试。'
     )
-  }
-
-  /**
-   * 应用退出
-   */
-  async exit(): Promise<void> {
-    this.logger.info('应用正在退出...')
     
-    try {
-      // 停止运行时
-      await stopRuntime()
-      
-      // 清理资源
-      if (this.mainWindow) {
-        this.mainWindow.destroy()
-        this.mainWindow = null
-      }
-      
-      this.logger.info('应用退出完成')
-    } catch (error) {
-      this.logger.error('应用退出失败:', error)
-    }
+    throw error
   }
 }
 
-// 创建应用实例
-const miaogeClawApp = new MiaogeClawApp()
-
-// 应用生命周期管理
-app.whenReady().then(() => {
-  miaogeClawApp.start().catch(error => {
-    console.error('应用启动失败:', error)
-    app.quit()
+/**
+ * 创建应用窗口
+ */
+function createWindow(): void {
+  const mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    show: false,
+    autoHideMenuBar: true,
+    titleBarStyle: 'default',
+    icon: join(__dirname, '../../resources/icon.ico'),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
   })
+
+  // 显示窗口时加载页面
+  mainWindow.on('ready-to-show', () => {
+    mainWindow.show()
+    
+    if (process.env.NODE_ENV === 'development') {
+      mainWindow.webContents.openDevTools()
+    }
+  })
+
+  // 加载应用入口
+  mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  
+  // 设置菜单
+  const menu = Menu.buildFromTemplate([])
+  Menu.setApplicationMenu(menu)
+}
+
+/**
+ * 设置应用菜单
+ */
+function setupMenu(): void {
+  const template = [
+    {
+      label: '文件',
+      submenu: [
+        {
+          label: '退出',
+          accelerator: 'CmdOrCtrl+Q',
+          click: () => {
+            app.quit()
+          }
+        }
+      ]
+    },
+    {
+      label: '帮助',
+      submenu: [
+        {
+          label: '关于',
+          click: () => {
+            dialog.showMessageBox({
+              type: 'info',
+              title: '关于喵哥Claw Desktop',
+              message: '喵哥Claw Desktop v1.0.9',
+              detail: '一个强大的AI智能体桌面应用。\n\n© 2026 喵哥Claw Desktop'
+            })
+          }
+        }
+      ]
+    }
+  ]
+
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
+}
+
+/**
+ * 初始化应用
+ */
+async function initializeApp(): Promise<void> {
+  try {
+    // Windows系统特殊处理
+    await initializeWindowsCompat()
+    
+    // 创建应用窗口
+    createWindow()
+    
+    // 设置菜单
+    setupMenu()
+    
+    // 设置自动更新
+    setupUpdater()
+    
+    // 设置性能监控
+    setupPerformanceMonitor()
+    
+    logger.info('✓ 应用初始化完成')
+  } catch (error) {
+    logger.error('应用初始化失败:', error)
+    app.quit()
+  }
+}
+
+// 应用启动入口
+app.whenReady().then(() => {
+  electronApp.setAppUserModelId('com.miaoge.claw.desktop')
+  
+  // 禁用GPU加速（某些系统需要）
+  app.disableHardwareAcceleration()
+  
+  // 优化窗口创建
+  app.on('browser-window-created', (_, window) => {
+    optimizer.warmUp(CONTENT_PRELOAD_URL)
+  })
+
+  // 初始化应用
+  initializeApp()
 })
 
+// 所有窗口关闭时退出应用
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
-app.on('before-quit', async () => {
-  await miaogeClawApp.exit()
-})
-
+// macOS重新激活时创建窗口
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    miaogeClawApp.start()
+    createWindow()
   }
 })
 
-// 导出应用实例
-export { miaogeClawApp, APP_NAME, APP_ID, APP_VERSION }
+// 错误处理
+process.on('uncaughtException', (error) => {
+  logger.error('未捕获的异常:', error)
+  
+  dialog.showErrorBox(
+    '程序错误',
+    '发生了一个未预期的错误。\n\n' +
+    `错误信息: ${error.message}\n\n` +
+    '请重启应用，如果问题仍然存在，请联系技术支持。'
+  )
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('未处理的Promise拒绝:', reason, promise)
+})

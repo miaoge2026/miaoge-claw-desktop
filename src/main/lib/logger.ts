@@ -1,5 +1,5 @@
-import { createWriteStream, mkdirSync } from 'fs'
-import { join, dirname } from 'path'
+import { createWriteStream, mkdirSync, join } from 'fs'
+import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import winston from 'winston'
 
@@ -23,11 +23,37 @@ export class StructuredLogger {
 
   /**
    * 获取日志文件路径
+   * 修复Windows环境下路径为undefined的问题
    */
   private getLogPath(): string {
-    const logDir = join(process.userData, 'logs')
-    mkdirSync(logDir, { recursive: true })
-    return join(logDir, 'app.log')
+    try {
+      // 尝试获取用户数据目录
+      const userDataPath = process.userData
+      
+      // 验证路径是否为有效字符串
+      if (typeof userDataPath === 'string' && userDataPath.trim().length > 0) {
+        const logDir = join(userDataPath, 'logs')
+        mkdirSync(logDir, { recursive: true })
+        return join(logDir, 'app.log')
+      }
+      
+      // 如果userData无效，使用备选路径
+      console.warn('process.userData is invalid, using fallback path')
+      
+      // 使用应用目录作为备选
+      const appDir = resolve(__dirname, '..', '..')
+      const fallbackLogDir = join(appDir, 'logs')
+      mkdirSync(fallbackLogDir, { recursive: true })
+      return join(fallbackLogDir, 'app.log')
+      
+    } catch (error) {
+      console.error('Failed to create log path:', error)
+      
+      // 最后的备选方案：使用当前工作目录
+      const cwdLogDir = join(process.cwd(), 'logs')
+      mkdirSync(cwdLogDir, { recursive: true })
+      return join(cwdLogDir, 'app.log')
+    }
   }
 
   /**
@@ -74,10 +100,18 @@ export class StructuredLogger {
       format,
       transports,
       exceptionHandlers: [
-        new winston.transports.File({ filename: join(dirname(this.logPath), 'exceptions.log') })
+        new winston.transports.File({ 
+          filename: join(dirname(this.logPath), 'exceptions.log'),
+          maxsize: 10 * 1024 * 1024,
+          maxFiles: 5
+        })
       ],
       rejectionHandlers: [
-        new winston.transports.File({ filename: join(dirname(this.logPath), 'rejections.log') })
+        new winston.transports.File({ 
+          filename: join(dirname(this.logPath), 'rejections.log'),
+          maxsize: 10 * 1024 * 1024,
+          maxFiles: 5
+        })
       ]
     })
   }
@@ -130,6 +164,7 @@ export class StructuredLogger {
   child(meta: Record<string, any>): StructuredLogger {
     const childLogger = new StructuredLogger()
     childLogger.logger = this.logger.child(meta)
+    childLogger.logPath = this.logPath
     return childLogger
   }
 
@@ -154,8 +189,29 @@ export class StructuredLogger {
    * 清理旧日志文件
    */
   cleanup(maxAgeDays: number = 30): void {
-    // 清理逻辑会在实际应用中实现
-    this.info(`清理${maxAgeDays}天前的日志文件`)
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const logDir = dirname(this.logPath)
+      
+      if (fs.existsSync(logDir)) {
+        const files = fs.readdirSync(logDir)
+        const now = Date.now()
+        const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000
+        
+        files.forEach(file => {
+          const filePath = path.join(logDir, file)
+          const stats = fs.statSync(filePath)
+          
+          if (now - stats.mtime.getTime() > maxAgeMs) {
+            fs.unlinkSync(filePath)
+            this.logger.info(`清理旧日志文件: ${filePath}`)
+          }
+        })
+      }
+    } catch (error) {
+      this.logger.error('清理日志文件失败:', error)
+    }
   }
 }
 

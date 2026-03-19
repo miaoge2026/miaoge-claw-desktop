@@ -1,82 +1,90 @@
 import { performance } from 'perf_hooks'
 import { logger } from './logger'
 
-interface PerformanceMetric {
+/**
+ * 性能指标类型
+ */
+export interface PerformanceMetric {
   name: string
   duration: number
   timestamp: number
   metadata?: Record<string, any>
 }
 
-interface PerformanceReport {
-  totalMetrics: number
-  averageDuration: number
-  slowOperations: PerformanceMetric[]
-  startupTime: number
-  memoryUsage: NodeJS.MemoryUsage
-}
-
 /**
  * 性能监控器
- * 监控应用性能指标，提供性能分析和优化建议
+ * 提供应用性能指标收集和分析功能
  */
 export class PerformanceMonitor {
-  private metrics: PerformanceMetric[]
   private logger: StructuredLogger
-  private startTime: number
-  private maxMetricsAge: number
+  private metrics: PerformanceMetric[]
+  private operationStartTimes: Map<string, number>
+  private isMonitoring: boolean
+  private maxMetrics: number
 
   constructor() {
-    this.metrics = []
     this.logger = logger.child({ component: 'PerformanceMonitor' })
-    this.startTime = performance.now()
-    this.maxMetricsAge = 24 * 60 * 60 * 1000 // 24小时
-    this.logger.info('性能监控器初始化完成')
+    this.metrics = []
+    this.operationStartTimes = new Map()
+    this.isMonitoring = false
+    this.maxMetrics = 1000 // 最多保留1000条指标
   }
 
   /**
-   * 开始计时
-   * 返回一个函数，调用时结束计时并记录指标
+   * 初始化性能监控
    */
-  startTimer(name: string, metadata?: Record<string, any>): () => void {
-    const start = performance.now()
-    const timestamp = Date.now()
-    
-    const endTimer = () => {
-      const duration = performance.now() - start
-      this.recordMetricInternal(name, duration, timestamp, metadata)
+  initialize(): void {
+    if (this.isMonitoring) {
+      this.logger.warn('性能监控已初始化，跳过重复初始化')
+      return
     }
 
-    return endTimer
+    this.isMonitoring = true
+    this.logger.info('性能监控功能已启用')
+
+    // 记录启动时间
+    this.recordMetric('app_startup', performance.now(), Date.now())
+    
+    // 设置定时清理
+    setInterval(() => {
+      this.cleanupOldMetrics()
+    }, 24 * 60 * 60 * 1000) // 每天清理一次
+  }
+
+  /**
+   * 记录操作开始时间
+   */
+  startOperation(operationName: string): void {
+    this.operationStartTimes.set(operationName, performance.now())
+    this.logger.debug(`开始记录操作: ${operationName}`)
+  }
+
+  /**
+   * 结束操作并记录耗时
+   */
+  endOperation(operationName: string, metadata?: Record<string, any>): void {
+    const startTime = this.operationStartTimes.get(operationName)
+    if (!startTime) {
+      this.logger.warn(`操作 ${operationName} 未开始，无法记录结束时间`)
+      return
+    }
+
+    const duration = performance.now() - startTime
+    this.recordMetric(operationName, duration, Date.now(), metadata)
+    
+    // 清理开始时间记录
+    this.operationStartTimes.delete(operationName)
+    
+    // 检查慢操作
+    if (duration > 5000) { // 超过5秒
+      this.logger.warn(`检测到慢操作: ${operationName} (${duration.toFixed(2)}ms)`)
+    }
   }
 
   /**
    * 记录性能指标
    */
-  recordMetric(name: string, duration: number, metadata?: Record<string, any>): void {
-    const metric: PerformanceMetric = {
-      name,
-      duration,
-      timestamp: Date.now(),
-      metadata
-    }
-
-    this.metrics.push(metric)
-    this.logger.debug(`性能记录: ${name} - ${duration.toFixed(2)}ms`, metadata)
-
-    // 如果操作耗时过长，发出警告
-    if (duration > 5000) {
-      this.logger.warn(`慢操作警告: ${name} 耗时 ${duration.toFixed(2)}ms`, metadata)
-    }
-
-    // 限制指标数量，避免内存泄漏
-    this.limitMetrics()
-  }
-
-  /**
-   * 记录性能指标（内部方法）
-   */
-  private recordMetricInternal(name: string, duration: number, timestamp: number, metadata?: Record<string, any>): void {
+  private recordMetric(name: string, duration: number, timestamp: number, metadata?: Record<string, any>): void {
     const metric: PerformanceMetric = {
       name,
       duration,
@@ -85,144 +93,149 @@ export class PerformanceMonitor {
     }
 
     this.metrics.push(metric)
-    this.logger.debug(`性能记录: ${name} - ${duration.toFixed(2)}ms`, metadata)
-
-    // 如果操作耗时过长，发出警告
-    if (duration > 5000) {
-      this.logger.warn(`慢操作警告: ${name} 耗时 ${duration.toFixed(2)}ms`, metadata)
+    
+    // 限制指标数量
+    if (this.metrics.length > this.maxMetrics) {
+      this.metrics.shift() // 移除最早的指标
     }
 
-    // 限制指标数量，避免内存泄漏
-    this.limitMetrics()
+    this.logger.debug(`性能记录: ${name} - ${duration.toFixed(2)}ms`)
   }
 
   /**
-   * 限制指标数量
+   * 获取性能指标统计
    */
-  private limitMetrics(): void {
-    const maxMetrics = 10000 // 最多保留10000条指标
-    if (this.metrics.length > maxMetrics) {
-      this.metrics = this.metrics.slice(-maxMetrics)
-      this.logger.warn(`指标数量超过限制，已清理旧数据，当前数量: ${this.metrics.length}`)
-    }
-  }
-
-  /**
-   * 获取性能报告
-   */
-  getPerformanceReport(): PerformanceReport {
-    const now = Date.now()
-    const cutoff = now - this.maxMetricsAge
-    
-    // 过滤有效指标
-    const validMetrics = this.metrics.filter(m => m.timestamp > cutoff)
-    
-    // 计算统计数据
-    const totalDuration = validMetrics.reduce((sum, m) => sum + m.duration, 0)
-    const averageDuration = validMetrics.length > 0 ? totalDuration / validMetrics.length : 0
-    const slowOperations = validMetrics.filter(m => m.duration > 1000)
-    const startupTime = performance.now() - this.startTime
-    
-    // 获取内存使用情况
-    const memoryUsage = process.memoryUsage()
-    
-    return {
-      totalMetrics: validMetrics.length,
-      averageDuration,
-      slowOperations,
-      startupTime,
-      memoryUsage
-    }
-  }
-
-  /**
-   * 导出性能数据
-   */
-  exportMetrics(format: 'json' | 'csv' = 'json'): string {
-    if (format === 'json') {
-      return JSON.stringify(this.metrics, null, 2)
-    }
-    
-    // CSV格式导出
-    const headers = ['name', 'duration', 'timestamp', 'metadata']
-    const rows = this.metrics.map(m => [
-      m.name,
-      m.duration,
-      m.timestamp,
-      JSON.stringify(m.metadata || {})
-    ])
-    
-    return [headers, ...rows].map(row => row.join(',')).join('\n')
-  }
-
-  /**
-   * 清理旧的性能数据
-   */
-  cleanup(maxAge: number = 24 * 60 * 60 * 1000): void {
-    const cutoff = Date.now() - maxAge
-    const originalCount = this.metrics.length
-    this.metrics = this.metrics.filter(m => m.timestamp > cutoff)
-    
-    const cleanedCount = originalCount - this.metrics.length
-    this.logger.info(`清理性能数据: 清理了${cleanedCount}条旧数据，当前数量: ${this.metrics.length}`)
-  }
-
-  /**
-   * 打印性能报告
-   */
-  printReport(): void {
-    const report = this.getPerformanceReport()
-    
-    this.logger.info('=== 性能报告 ===')
-    this.logger.info(`总操作数: ${report.totalMetrics}`)
-    this.logger.info(`平均耗时: ${report.averageDuration.toFixed(2)}ms`)
-    this.logger.info(`启动时间: ${report.startupTime.toFixed(2)}ms`)
-    this.logger.info(`慢操作数: ${report.slowOperations.length}`)
-    
-    // 内存使用信息
-    const { heapUsed, heapTotal, external } = report.memoryUsage
-    this.logger.info(`内存使用: ${(heapUsed / 1024 / 1024).toFixed(2)}MB / ${(heapTotal / 1024 / 1024).toFixed(2)}MB`)
-    this.logger.info(`外部内存: ${(external / 1024 / 1024).toFixed(2)}MB`)
-    
-    // 慢操作详情
-    if (report.slowOperations.length > 0) {
-      this.logger.warn('慢操作列表:')
-      report.slowOperations.forEach(op => {
-        this.logger.warn(`  - ${op.name}: ${op.duration.toFixed(2)}ms`)
-      })
-    }
-    
-    this.logger.info('=== 性能报告结束 ===')
-  }
-
-  /**
-   * 获取特定操作的统计信息
-   */
-  getOperationStats(operationName: string): {
-    count: number
+  getMetricsStats(timeRange?: {
+    start: number
+    end: number
+  }): {
+    totalOperations: number
     averageDuration: number
-    minDuration: number
-    maxDuration: number
+    slowOperations: number
+    operationsByCategory: Record<string, number>
   } {
-    const operations = this.metrics.filter(m => m.name === operationName)
+    let filteredMetrics = this.metrics
     
-    if (operations.length === 0) {
+    // 按时间范围过滤
+    if (timeRange) {
+      filteredMetrics = this.metrics.filter(metric => 
+        metric.timestamp >= timeRange.start && metric.timestamp <= timeRange.end
+      )
+    }
+
+    if (filteredMetrics.length === 0) {
       return {
-        count: 0,
+        totalOperations: 0,
         averageDuration: 0,
-        minDuration: 0,
-        maxDuration: 0
+        slowOperations: 0,
+        operationsByCategory: {}
       }
     }
+
+    const totalDuration = filteredMetrics.reduce((sum, metric) => sum + metric.duration, 0)
+    const slowOperations = filteredMetrics.filter(metric => metric.duration > 1000).length
     
-    const durations = operations.map(m => m.duration)
-    const totalDuration = durations.reduce((sum, d) => sum + d, 0)
-    
+    // 按操作名称分类统计
+    const operationsByCategory: Record<string, number> = {}
+    filteredMetrics.forEach(metric => {
+      const category = metric.name.split('_')[0] || 'unknown'
+      operationsByCategory[category] = (operationsByCategory[category] || 0) + 1
+    })
+
     return {
-      count: operations.length,
-      averageDuration: totalDuration / operations.length,
-      minDuration: Math.min(...durations),
-      maxDuration: Math.max(...durations)
+      totalOperations: filteredMetrics.length,
+      averageDuration: totalDuration / filteredMetrics.length,
+      slowOperations,
+      operationsByCategory
+    }
+  }
+
+  /**
+   * 获取最慢的操作
+   */
+  getSlowestOperations(limit: number = 10): PerformanceMetric[] {
+    return [...this.metrics]
+      .sort((a, b) => b.duration - a.duration)
+      .slice(0, limit)
+  }
+
+  /**
+   * 获取操作耗时分布
+   */
+  getOperationDistribution(): Record<string, { count: number, avgDuration: number }> {
+    const distribution: Record<string, { count: number, totalDuration: number }> = {}
+    
+    this.metrics.forEach(metric => {
+      if (!distribution[metric.name]) {
+        distribution[metric.name] = { count: 0, totalDuration: 0 }
+      }
+      distribution[metric.name].count++
+      distribution[metric.name].totalDuration += metric.duration
+    })
+
+    // 转换为平均值
+    const result: Record<string, { count: number, avgDuration: number }> = {}
+    Object.keys(distribution).forEach(operation => {
+      const { count, totalDuration } = distribution[operation]
+      result[operation] = {
+        count,
+        avgDuration: totalDuration / count
+      }
+    })
+
+    return result
+  }
+
+  /**
+   * 清理旧指标
+   */
+  private cleanupOldMetrics(daysToKeep: number = 7): void {
+    const cutoffTime = Date.now() - (daysToKeep * 24 * 60 * 60 * 1000)
+    const oldCount = this.metrics.length
+    
+    this.metrics = this.metrics.filter(metric => metric.timestamp > cutoffTime)
+    
+    const removedCount = oldCount - this.metrics.length
+    if (removedCount > 0) {
+      this.logger.info(`已清理 ${removedCount} 条旧性能指标记录`)
+    }
+  }
+
+  /**
+   * 生成性能报告
+   */
+  generateReport(): {
+    timestamp: number
+    totalOperations: number
+    averageResponseTime: number
+    slowOperationsCount: number
+    recommendations: string[]
+  } {
+    const stats = this.getMetricsStats()
+    const slowestOps = this.getSlowestOperations(5)
+    
+    const recommendations: string[] = []
+    
+    if (stats.averageDuration > 1000) {
+      recommendations.push('平均响应时间较长，建议优化关键操作')
+    }
+    
+    if (stats.slowOperations > stats.totalOperations * 0.1) {
+      recommendations.push('慢操作比例较高，建议性能分析')
+    }
+
+    slowestOps.forEach(operation => {
+      if (operation.duration > 5000) {
+        recommendations.push(`优化慢操作: ${operation.name} (${operation.duration.toFixed(2)}ms)`)
+      }
+    })
+
+    return {
+      timestamp: Date.now(),
+      totalOperations: stats.totalOperations,
+      averageResponseTime: stats.averageDuration,
+      slowOperationsCount: stats.slowOperations,
+      recommendations
     }
   }
 
@@ -231,10 +244,49 @@ export class PerformanceMonitor {
    */
   reset(): void {
     this.metrics = []
-    this.startTime = performance.now()
+    this.operationStartTimes.clear()
     this.logger.info('性能监控已重置')
+  }
+
+  /**
+   * 销毁性能监控
+   */
+  destroy(): void {
+    this.isMonitoring = false
+    this.metrics = []
+    this.operationStartTimes.clear()
+    this.logger.info('性能监控已销毁')
   }
 }
 
-// 导出性能监控器实例
-export const performanceMonitor = new PerformanceMonitor()
+// 创建性能监控器实例
+const performanceMonitor = new PerformanceMonitor()
+
+/**
+ * 设置性能监控
+ * 用于在应用启动时初始化性能监控功能
+ */
+export function setupPerformanceMonitor(): void {
+  performanceMonitor.initialize()
+}
+
+/**
+ * 获取性能监控器实例
+ */
+export function getPerformanceMonitor(): PerformanceMonitor {
+  return performanceMonitor
+}
+
+/**
+ * 记录操作开始（便捷函数）
+ */
+export function startPerfMeasurement(operationName: string): void {
+  performanceMonitor.startOperation(operationName)
+}
+
+/**
+ * 结束操作并记录（便捷函数）
+ */
+export function endPerfMeasurement(operationName: string, metadata?: Record<string, any>): void {
+  performanceMonitor.endOperation(operationName, metadata)
+}
