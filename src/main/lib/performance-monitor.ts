@@ -44,7 +44,7 @@ export class PerformanceMonitor {
     
     const endTimer = () => {
       const duration = performance.now() - start
-      this.recordMetric(name, duration, timestamp, metadata)
+      this.recordMetricInternal(name, duration, timestamp, metadata)
     }
 
     return endTimer
@@ -53,11 +53,11 @@ export class PerformanceMonitor {
   /**
    * 记录性能指标
    */
-  recordMetric(name: string, duration: number, timestamp: number, metadata?: Record<string, any>): void {
+  recordMetric(name: string, duration: number, metadata?: Record<string, any>): void {
     const metric: PerformanceMetric = {
       name,
       duration,
-      timestamp,
+      timestamp: Date.now(),
       metadata
     }
 
@@ -74,24 +74,9 @@ export class PerformanceMonitor {
   }
 
   /**
-   * 记录自定义指标
+   * 记录性能指标（内部方法）
    */
-  recordCustomMetric(name: string, value: number, metadata?: Record<string, any>): void {
-    const metric: PerformanceMetric = {
-      name,
-      duration: value,
-      timestamp: Date.now(),
-      metadata
-    }
-
-    this.metrics.push(metric)
-    this.logger.debug(`自定义指标: ${name} - ${value}`, metadata)
-  }
-
-  /**
-   * 记录性能指标
-   */
-  private recordMetric(name: string, duration: number, timestamp: number, metadata?: Record<string, any>): void {
+  private recordMetricInternal(name: string, duration: number, timestamp: number, metadata?: Record<string, any>): void {
     const metric: PerformanceMetric = {
       name,
       duration,
