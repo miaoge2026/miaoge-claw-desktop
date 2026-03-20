@@ -11,7 +11,8 @@
     "build:mac": "npm run bundle:openclaw && npm run build && electron-builder --mac",
     "dev": "electron-vite dev",
     "bundle:openclaw": "node scripts/bundle-openclaw.mjs",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "lint": "eslint \"src/main/**/*.ts\" \"src/preload/**/*.ts\" \"src/shared/**/*.ts\" \"electron.vite.config.ts\""
   },
   "build": {
     "appId": "com.miaoge.claw.desktop",
