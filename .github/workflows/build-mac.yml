@@ -1,15 +1,16 @@
-name: Build macOS
+name: Build Desktop App
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-mac:
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -18,20 +19,29 @@ jobs:
             arch: arm64
 
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v6
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: 22
+          cache: pnpm
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
+          run_install: false
+
+      - name: Verify lockfile
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json ok')"
+          test -f pnpm-lock.yaml || (echo "pnpm-lock.yaml not found" && exit 1)
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -83,18 +93,16 @@ jobs:
         env:
           npm_config_registry: https://registry.npmjs.org
 
-      - name: Build (electron-vite)
+      - name: Build app
         run: pnpm run build
 
-      - name: Package DMG
-        run: pnpm exec electron-builder --mac --${{ matrix.arch }} --publish never
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - name: Package macOS
+        run: pnpm run build:mac
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
-          name: EasiestClaw-mac-${{ matrix.arch }}
+          name: Claw-mac-${{ matrix.arch }}
           path: dist/*.dmg
           if-no-files-found: error
 
@@ -104,7 +112,6 @@ jobs:
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           node scripts/extract-release-notes.mjs $VERSION > "$RUNNER_TEMP/release-notes.md"
-          cat "$RUNNER_TEMP/release-notes.md"
           # 主版本号为 0 或包含 - 的版本视为测试版
           if [[ "$VERSION" =~ ^0\. ]] || [[ "$VERSION" =~ - ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT

@@ -17,17 +17,27 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: pnpm
       
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
-          version: '9'
+          version: '10'
+          run_install: false
+      
+      - name: Verify lockfile
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json ok')"
+          test -f pnpm-lock.yaml || (echo "pnpm-lock.yaml not found" && exit 1)
       
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile  # 修复 lockfile 不匹配问题
+        run: pnpm install --frozen-lockfile
       
       - name: Build
         run: pnpm run build
       
-      - name: Test
-        run: pnpm run test
+      - name: Type check
+        run: pnpm run typecheck
+      
+      - name: Lint
+        run: pnpm run lint:all
