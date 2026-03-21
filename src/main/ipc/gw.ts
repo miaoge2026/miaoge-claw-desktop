@@ -105,7 +105,7 @@ export class GatewayClient {
     const baseMeta = { method, params }
 
     if (error instanceof Error) {
-      this.logger.error('Gateway request failed', error, baseMeta)
+      this.logger.error('Gateway request failed', { ...baseMeta, error: error.message, stack: error.stack })
 
       // Specific error handling for common scenarios
       if (error.name === 'TimeoutError' || error.message.includes('timeout')) {
@@ -139,7 +139,7 @@ export class GatewayClient {
       }
     }
 
-    this.logger.error('Gateway request failed with unknown error', undefined, baseMeta)
+    this.logger.error('Gateway request failed with unknown error', baseMeta)
     return {
       ok: false,
       error: 'Unknown error occurred.',
@@ -153,7 +153,7 @@ export class GatewayClient {
   async healthCheck(): Promise<{ ok: boolean; latency: number }> {
     const start = Date.now()
     try {
-      const result = await this.request<string>('system.health', {}, { retry: false, timeout: 5000 })
+      const result = await this.request<string>('health', {}, { retry: false, timeout: 5000 })
       return { ok: result.ok, latency: Date.now() - start }
     } catch (error) {
       return { ok: false, latency: Date.now() - start }
