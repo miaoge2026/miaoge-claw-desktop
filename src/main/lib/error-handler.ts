@@ -1,5 +1,5 @@
 import { dialog, app } from 'electron'
-import { logger } from './logger'
+import { logger, StructuredLogger } from './logger'
 import { EventEmitter } from 'events'
 
 /**
@@ -8,23 +8,20 @@ import { EventEmitter } from 'events'
  */
 export class WindowsErrorHandler extends EventEmitter {
   private logger: StructuredLogger
-  private isInitialized: boolean
   private errorCount: number
 
   constructor() {
     super()
     this.logger = logger.child({ component: 'WindowsErrorHandler' })
-    this.isInitialized = false
     this.errorCount = 0
   }
 
   /**
    * 初始化错误处理
    */
-  static initialize(): void {
+  static initialize(): WindowsErrorHandler {
     const errorHandler = new WindowsErrorHandler()
     errorHandler.setupErrorHandlers()
-    errorHandler.isInitialized = true
     return errorHandler
   }
 
@@ -38,8 +35,8 @@ export class WindowsErrorHandler extends EventEmitter {
     })
 
     // 捕获Promise拒绝
-    process.on('unhandledRejection', (reason, promise) => {
-      this.handleCriticalError(new Error(`未处理的Promise拒绝: ${reason}`))
+    process.on('unhandledRejection', (reason) => {
+      this.handleCriticalError(new Error(`未处理的Promise拒绝: ${String(reason)}`))
     })
 
     // 捕获模块加载错误
@@ -54,7 +51,7 @@ export class WindowsErrorHandler extends EventEmitter {
   /**
    * 处理关键错误
    */
-  private handleCriticalError(error: Error): void {
+  handleCriticalError(error: Error): void {
     this.errorCount++
     
     this.logger.critical('关键错误:', {
@@ -164,7 +161,7 @@ export class WindowsErrorHandler extends EventEmitter {
   /**
    * 提供解决方案
    */
-  private suggestSolutions(error: Error): void {
+  private suggestSolutions(_error: Error): void {
     const solutions = [
       '重新安装Visual C++运行库',
       '以管理员身份运行应用',

@@ -1,7 +1,6 @@
-import { pathToFileURL } from 'url'
-import { join, dirname } from 'path'
+import { delimiter, dirname, join } from 'path'
 import { fileURLToPath } from 'url'
-import { logger } from './logger'
+import { logger, StructuredLogger } from './logger'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -13,7 +12,7 @@ const __dirname = dirname(__filename)
  */
 export class ModuleResolver {
   private logger: StructuredLogger
-  private moduleCache: Map<string, any>
+  private moduleCache: Map<string, unknown>
   private searchPaths: string[]
 
   constructor() {
@@ -34,7 +33,7 @@ export class ModuleResolver {
       join(process.cwd(), 'node_modules'),
       
       // 系统模块路径
-      ...(process.env.NODE_PATH ? process.env.NODE_PATH.split(path.delimiter) : [])
+      ...(process.env.NODE_PATH ? process.env.NODE_PATH.split(delimiter) : [])
     ]
 
     // 去重
@@ -47,10 +46,10 @@ export class ModuleResolver {
   fixModuleLoading(): void {
     try {
       // 添加模块搜索路径到NODE_PATH
-      const nodeModulesPaths = this.searchPaths.join(path.delimiter)
+      const nodeModulesPaths = this.searchPaths.join(delimiter)
       
       if (!process.env.NODE_PATH?.includes(nodeModulesPaths)) {
-        process.env.NODE_PATH = `${nodeModulesPaths}${path.delimiter}${process.env.NODE_PATH || ''}`
+        process.env.NODE_PATH = `${nodeModulesPaths}${delimiter}${process.env.NODE_PATH || ''}`
         this.logger.info('已更新NODE_PATH环境变量')
       }
 
@@ -76,7 +75,7 @@ export class ModuleResolver {
         join(process.cwd(), 'node_modules', '@modelcontextprotocol', 'sdk')
       ]
 
-      let loadedModule: any = null
+      let loadedModule: unknown = null
       
       for (const modulePath of modulePaths) {
         try {
@@ -192,10 +191,10 @@ export class ModuleResolver {
   /**
    * 添加自定义搜索路径
    */
-  addSearchPath(path: string): void {
-    if (!this.searchPaths.includes(path)) {
-      this.searchPaths.push(path)
-      this.logger.info(`已添加搜索路径: ${path}`)
+  addSearchPath(searchPath: string): void {
+    if (!this.searchPaths.includes(searchPath)) {
+      this.searchPaths.push(searchPath)
+      this.logger.info(`已添加搜索路径: ${searchPath}`)
     }
   }
 

@@ -1,5 +1,5 @@
 import { performance } from 'perf_hooks'
-import { logger } from './logger'
+import { logger, StructuredLogger } from './logger'
 import { errorHandler } from './error-handler'
 import { ModuleResolver } from './module-resolver'
 
@@ -62,8 +62,9 @@ export class StartupOptimizer {
 
     } catch (error) {
       this.logger.error('启动优化失败:', error)
-      errorHandler.handleCriticalError(error)
-      throw error
+      const normalizedError = error instanceof Error ? error : new Error(String(error))
+      errorHandler.handleCriticalError(normalizedError)
+      throw normalizedError
     }
   }
 
