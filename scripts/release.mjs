@@ -3,7 +3,7 @@
  * release.mjs — 一键发布脚本
  *
  * 用法：node scripts/release.mjs <version>
- *       pnpm run release 0.2.0
+ *       npm run release -- 0.2.0
  *
  * 前置：在 CHANGELOG.md 的 [Unreleased] 区块写好本次更新内容。
  *
@@ -34,7 +34,7 @@ function run(cmd) {
 // ── 参数校验 ──────────────────────────────────────────────────────────────────
 const version = process.argv[2]
 if (!version || !/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/.test(version)) {
-  console.error('用法: pnpm run release <version>  (例如: 0.2.0 或 0.2.0-beta)')
+  console.error('用法: npm run release -- <version>  (例如: 1.1.1 或 1.1.1-beta)')
   process.exit(1)
 }
 
@@ -106,7 +106,7 @@ const today = new Date().toISOString().slice(0, 10)
 const newUnreleased = [
   '## [Unreleased]',
   '',
-  '> 在这里写下一个版本的更新内容，发版时会自动提取为 Release 正文。',
+  '> 在这里写下下一个版本的更新内容。',
   '',
   '### 新增',
   '',

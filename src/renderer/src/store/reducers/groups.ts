@@ -2,6 +2,7 @@ import type { Message } from "@/types"
 import type { AppState, AppAction } from "../app-types"
 import { saveGroupsToStorage, saveGroupMessagesToStorage, savePinnedToStorage } from "../app-storage"
 import { uniqueId } from "../app-utils"
+import { appendConversationMessage, formatChatTimestamp, summarizeMessage } from '../reducer-helpers'
 
 export function handleGroupAction(state: AppState, action: AppAction): AppState | null {
   switch (action.type) {
@@ -47,7 +48,7 @@ export function handleGroupAction(state: AppState, action: AppAction): AppState 
         const lastMsg = msgs[msgs.length - 1]
         return {
           ...c,
-          lastMessage: lastMsg.content.slice(0, 100),
+          lastMessage: summarizeMessage(lastMsg.content),
           lastMessageTime: lastMsg.timestamp,
         }
       })
@@ -70,7 +71,7 @@ export function handleGroupAction(state: AppState, action: AppAction): AppState 
         senderName: "\u7f16\u6392\u7cfb\u7edf",
         senderAvatar: "OC",
         content: reason,
-        timestamp: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+        timestamp: formatChatTimestamp(),
         read: true,
         type: "orchestration",
         orchestrationInfo: {
@@ -79,11 +80,7 @@ export function handleGroupAction(state: AppState, action: AppAction): AppState 
           reason,
         },
       }
-      const existing = state.messages[conversationId] ?? []
-      return {
-        ...state,
-        messages: { ...state.messages, [conversationId]: [...existing, orchestrationMsg] },
-      }
+      return appendConversationMessage(state, conversationId, orchestrationMsg)
     }
     case "ADVANCE_ROUND_ROBIN": {
       const { conversationId } = action.payload

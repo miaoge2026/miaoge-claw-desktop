@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { shell, type IpcMain } from 'electron'
 import { gw } from './gw'
+import { isSafeWorkspaceRelativePath } from './shared'
 
 // ── Workspace path cache (per agentId) ──────────────────────────────────────
 // agents.files.list is cheap but called often; cache workspace dir for 60s.
@@ -177,7 +178,7 @@ export const registerAgentHandlers = (ipcMain: IpcMain): void => {
     if (!workspace) return { ok: false, error: 'Cannot resolve workspace path' }
 
     const filePath = params.filePath
-    if (!filePath || filePath.includes('..') || path.isAbsolute(filePath)) {
+    if (!isSafeWorkspaceRelativePath(filePath)) {
       return { ok: false, error: 'Invalid file path' }
     }
 
@@ -220,7 +221,7 @@ export const registerAgentHandlers = (ipcMain: IpcMain): void => {
     if (!workspace) return { ok: false, error: 'Cannot resolve workspace path' }
 
     const filePath = params.filePath
-    if (!filePath || filePath.includes('..') || path.isAbsolute(filePath)) {
+    if (!isSafeWorkspaceRelativePath(filePath)) {
       return { ok: false, error: 'Invalid file path' }
     }
 

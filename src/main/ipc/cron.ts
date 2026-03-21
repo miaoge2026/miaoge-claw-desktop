@@ -1,32 +1,22 @@
+import { StructuredLogger } from '../lib/logger'
+import { registerIpcHandler } from './shared'
 import type { IpcMain } from 'electron'
 import { gw } from './gw'
 
+const logger = new StructuredLogger({ component: 'CronIpcHandlers' })
+
 export const registerCronHandlers = (ipcMain: IpcMain): void => {
-  ipcMain.handle('cron:list', async () => {
-    return gw('cron.list', {})
-  })
+  void registerIpcHandler(ipcMain, 'cron:list', logger, async (_event, _params) => gw('cron.list', {}))
 
-  ipcMain.handle('cron:add', async (_event, params: unknown) => {
-    return gw('cron.add', params)
-  })
+  void registerIpcHandler(ipcMain, 'cron:add', logger, async (_event, params) => gw('cron.add', params))
 
-  ipcMain.handle('cron:update', async (_event, params: unknown) => {
-    return gw('cron.update', params)
-  })
+  void registerIpcHandler(ipcMain, 'cron:update', logger, async (_event, params) => gw('cron.update', params))
 
-  ipcMain.handle('cron:remove', async (_event, params: { jobId: string }) => {
-    return gw('cron.remove', params)
-  })
+  void registerIpcHandler(ipcMain, 'cron:remove', logger, async (_event, params) => gw('cron.remove', params))
 
-  ipcMain.handle('cron:run', async (_event, params: { jobId: string }) => {
-    return gw('cron.run', params)
-  })
+  void registerIpcHandler(ipcMain, 'cron:run', logger, async (_event, params) => gw('cron.run', params))
 
-  ipcMain.handle('cron:runs', async (_event, params: { jobId: string }) => {
-    return gw('cron.runs', params)
-  })
+  void registerIpcHandler(ipcMain, 'cron:runs', logger, async (_event, params) => gw('cron.runs', params))
 
-  ipcMain.handle('cron:status', async () => {
-    return gw('cron.status', {})
-  })
+  void registerIpcHandler(ipcMain, 'cron:status', logger, async (_event, _params) => gw('cron.status', {}))
 }
