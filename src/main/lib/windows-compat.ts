@@ -1,169 +1,126 @@
-import { logger } from './logger'
 import { exec } from 'child_process'
-import { promisify } from 'util'
-import { join } from 'path'
 import { existsSync } from 'fs'
+import { join, parse } from 'path'
+import { promisify } from 'util'
+import { logger, normalizeError } from './logger'
 
 const execAsync = promisify(exec)
 
-/**
- * Windows兼容性处理类
- * 负责处理Windows系统特有的兼容性问题
- * 包括VC++运行库检查、安装、系统验证等功能
- */
-export class WindowsCompat {
-  private logger = logger.child({ component: 'WindowsCompat' })
+async function queryDriveFreeSpace(targetPath: string): Promise<number | null> {
+  if (process.platform !== 'win32') return null
 
-  /**
-   * 检查VC++运行库是否已安装
-   */
+  const root = parse(targetPath).root.replace(/\\$/, '')
+  if (!root) return null
+
+  try {
+    const escaped = root.replace(/'/g, "''")
+    const command = `powershell -NoProfile -Command "(Get-CimInstance Win32_LogicalDisk -Filter \"DeviceID='${escaped}'\").FreeSpace"`
+    const { stdout } = await execAsync(command, { windowsHide: true, timeout: 10_000 })
+    const bytes = Number.parseInt(stdout.trim(), 10)
+    return Number.isFinite(bytes) ? bytes : null
+  } catch {
+    return null
+  }
+}
+
+export class WindowsCompat {
+  private readonly logger = logger.child({ component: 'WindowsCompat' })
+
   async isVCppRuntimeInstalled(): Promise<boolean> {
+    if (process.platform !== 'win32') return true
+
     try {
-      // 检查注册表
-      const registry = require('winreg')
-      return new Promise((resolve) => {
-        registry({
-          hive: registry.HKLM,
-          key: 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64'
-        }, (err: any, key: any) => {
-          if (err) {
-            resolve(false)
+      const WinReg = require('winreg') as typeof import('winreg')
+      const registryKey = new WinReg({
+        hive: WinReg.HKLM,
+        key: '\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64',
+      })
+
+      const items = await new Promise<Array<{ name: string; value: string }>>((resolve, reject) => {
+        registryKey.values((error, values) => {
+          if (error) {
+            reject(error)
             return
           }
-          
-          key.values((err: any, items: any[]) => {
-            if (err || items.length === 0) {
-              resolve(false)
-            } else {
-              resolve(true)
-            }
-          })
+          resolve(values ?? [])
         })
       })
+
+      return items.some((item) => item.name === 'Installed' && item.value === '1')
     } catch (error) {
-      this.logger.warn('检查VC++运行库失败:', error)
+      this.logger.warn('检查 VC++ 运行库失败', normalizeError(error))
       return false
     }
   }
 
-  /**
-   * 静默安装VC++运行库
-   */
   async installVCppRuntimeSilently(): Promise<void> {
-    const installerPath = join(
-      process.resourcesPath,
-      'vc_redist',
-      'VC_redist.x64.exe'
-    )
+    if (process.platform !== 'win32') return
 
+    const installerPath = join(process.resourcesPath, 'vc_redist', 'VC_redist.x64.exe')
     if (!existsSync(installerPath)) {
-      throw new Error('VC++安装包未找到')
+      throw new Error(`VC++ 安装包未找到: ${installerPath}`)
     }
 
+    const command = `"${installerPath}" /install /quiet /norestart`
     try {
-      this.logger.info('开始静默安装VC++运行库...')
-      
-      // 静默安装参数
-      const command = `"${installerPath}" /install /quiet /norestart`
-      
-      // 执行安装
       const { stdout, stderr } = await execAsync(command, {
         windowsHide: true,
-        timeout: 300000, // 5分钟超时
-        env: { ...process.env }
+        timeout: 5 * 60 * 1000,
+        env: { ...process.env },
       })
-
-      this.logger.info('VC++运行库安装输出:', stdout)
-      if (stderr) {
-        this.logger.warn('安装警告:', stderr)
-      }
-
-      this.logger.info('✓ VC++运行库安装完成')
+      this.logger.info('VC++ 运行库安装完成', { stdout: stdout.trim(), stderr: stderr.trim() || undefined })
     } catch (error) {
-      this.logger.error('VC++运行库安装失败:', error)
-      const message = error instanceof Error ? error.message : String(error)
-      throw new Error(`VC++运行库安装失败: ${message}`)
+      this.logger.error('VC++ 运行库安装失败', normalizeError(error))
+      throw new Error(`VC++ 运行库安装失败：${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
-  /**
-   * 检查并安装VC++运行库
-   */
   async checkAndInstallVCppRuntime(): Promise<boolean> {
-    try {
-      // 检查是否已安装
-      const isInstalled = await this.isVCppRuntimeInstalled()
-      
-      if (isInstalled) {
-        this.logger.info('✓ VC++运行库已安装')
-        return true
-      }
+    if (process.platform !== 'win32') return true
 
-      this.logger.info('VC++运行库未安装，开始自动安装...')
-      
-      // 静默安装
-      await this.installVCppRuntimeSilently()
-      
-      // 验证安装
-      const verifyInstall = await this.isVCppRuntimeInstalled()
-      if (!verifyInstall) {
-        throw new Error('安装验证失败')
-      }
-
-      this.logger.info('✓ VC++运行库安装成功')
+    if (await this.isVCppRuntimeInstalled()) {
+      this.logger.info('VC++ 运行库已安装')
       return true
-    } catch (error) {
-      this.logger.error('VC++运行库处理失败:', error)
-      return false
     }
+
+    this.logger.warn('检测到 VC++ 运行库缺失，准备安装')
+    await this.installVCppRuntimeSilently()
+    return this.isVCppRuntimeInstalled()
   }
 
-  /**
-   * 检查系统要求
-   */
-  async checkSystemRequirements(): Promise<{
-    meetsRequirements: boolean
-    issues: string[]
-  }> {
+  async checkSystemRequirements(): Promise<{ meetsRequirements: boolean; issues: string[] }> {
+    if (process.platform !== 'win32') {
+      return { meetsRequirements: true, issues: [] }
+    }
+
+    const os = await import('os')
     const issues: string[] = []
-
-    // 检查Windows版本
-    const os = require('os')
     const version = os.release()
-    const majorVersion = parseInt(version.split('.')[0] ?? '0', 10)
-    
+    const majorVersion = Number.parseInt(version.split('.')[0] ?? '0', 10)
+
     if (majorVersion < 10) {
-      issues.push(`Windows版本过低: ${version} (需要Windows 10+)`)
+      issues.push(`Windows 版本过低：${version}（需要 Windows 10+）`)
     }
 
-    // 检查架构
-    const arch = os.arch()
-    if (arch !== 'x64') {
-      issues.push(`系统架构不支持: ${arch} (需要x64)`)
+    if (os.arch() !== 'x64') {
+      issues.push(`系统架构不支持：${os.arch()}（需要 x64）`)
     }
 
-    // 检查内存
-    const totalMem = os.totalmem() / (1024 * 1024 * 1024) // GB
-    if (totalMem < 4) {
-      issues.push(`内存不足: ${totalMem.toFixed(1)}GB (需要4GB以上)`)
+    const totalMemGb = os.totalmem() / 1024 / 1024 / 1024
+    if (totalMemGb < 4) {
+      issues.push(`内存不足：${totalMemGb.toFixed(1)}GB（需要至少 4GB）`)
     }
 
-    // 检查磁盘空间
-    const fs = require('fs-extra')
-    const appDir = process.cwd()
-    try {
-      const stats = await fs.stat(appDir)
-      const freeSpace = stats.size / (1024 * 1024 * 1024) // GB
-      if (freeSpace < 20) {
-        issues.push(`磁盘空间不足: ${freeSpace.toFixed(1)}GB (需要20GB以上)`)
+    const freeBytes = await queryDriveFreeSpace(process.cwd())
+    if (freeBytes != null) {
+      const freeGb = freeBytes / 1024 / 1024 / 1024
+      if (freeGb < 10) {
+        issues.push(`磁盘空间不足：${freeGb.toFixed(1)}GB（建议至少 10GB）`)
       }
-    } catch (error) {
-      this.logger.warn('检查磁盘空间失败:', error instanceof Error ? error.message : String(error))
+    } else {
+      this.logger.warn('无法准确检测磁盘剩余空间')
     }
 
-    return {
-      meetsRequirements: issues.length === 0,
-      issues
-    }
+    return { meetsRequirements: issues.length === 0, issues }
   }
 }
