@@ -80,10 +80,6 @@ function createMainWindow(): BrowserWindow {
     }
   })
 
-  window.on('closed', () => {
-    if (mainWindow === window) mainWindow = null
-  })
-
   void window.loadFile(join(__dirname, '../renderer/index.html'))
   optimizer.watchWindowShortcuts(window)
   return window
@@ -111,9 +107,7 @@ async function initializeApp(): Promise<void> {
   })
 }
 
-function registerLifecycleEvents(): void {
-  app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit()
+
   })
 
   app.on('activate', () => {
@@ -156,8 +150,5 @@ async function bootstrap(): Promise<void> {
   await initializeApp()
 }
 
-void bootstrap().catch((error) => {
-  logger.error('应用初始化失败', normalizeError(error))
-  dialog.showErrorBox('启动失败', error instanceof Error ? error.message : String(error))
-  app.quit()
+
 })

@@ -78,8 +78,7 @@ npm run dev
 | `npm run lint` | 校验主进程 / 预加载 / 共享层 TypeScript |
 | `npm run lint:all` | 校验整个 `src` 下的 TS/TSX 文件 |
 | `npm run typecheck` | 执行 TypeScript 项目级检查 |
-| `npm run release -- <version>` | 按 CHANGELOG 自动更新版本、提交并打标签 |
-| `npm run release:notes -- <version>` | 提取指定版本的发布说明 |
+
 
 ## 📁 项目结构
 

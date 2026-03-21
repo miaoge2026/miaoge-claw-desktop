@@ -14,9 +14,7 @@
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint \"src/main/**/*.ts\" \"src/preload/**/*.ts\" \"src/shared/**/*.ts\" \"electron.vite.config.ts\"",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
-    "lint:all": "eslint \"src/**/*.{ts,tsx}\" \"electron.vite.config.ts\"",
-    "release": "node scripts/release.mjs",
-    "release:notes": "node scripts/extract-release-notes.mjs"
+
   },
   "build": {
     "appId": "com.miaoge.claw.desktop",

@@ -1,26 +1,20 @@
-import { app, dialog } from 'electron'
+
 import { EventEmitter } from 'events'
 import { logger, normalizeError, StructuredLogger } from './logger'
 
 export class WindowsErrorHandler extends EventEmitter {
-  private readonly logger: StructuredLogger
-  private errorCount = 0
-  private registered = false
+
 
   constructor() {
     super()
     this.logger = logger.child({ component: 'WindowsErrorHandler' })
-  }
 
-  initialize(): this {
-    if (this.registered) return this
 
     process.on('uncaughtException', (error) => {
       this.handleCriticalError(error, { source: 'uncaughtException' })
     })
 
-    process.on('unhandledRejection', (reason) => {
-      this.handleUnhandledRejection(reason)
+
     })
 
     this.registered = true
@@ -28,17 +22,7 @@ export class WindowsErrorHandler extends EventEmitter {
     return this
   }
 
-  handleUnhandledRejection(reason: unknown): void {
-    const error = reason instanceof Error ? reason : new Error(String(reason))
-    this.logger.error('未处理的 Promise 拒绝', normalizeError(error))
-    this.emit('unhandled-rejection', error)
-  }
 
-  handleCriticalError(error: Error, context?: Record<string, unknown>): void {
-    this.errorCount += 1
-
-    this.logger.critical('关键错误', {
-      ...context,
       count: this.errorCount,
       timestamp: new Date().toISOString(),
       ...normalizeError(error),
@@ -88,12 +72,7 @@ export class WindowsErrorHandler extends EventEmitter {
     })
   }
 
-  private logSuggestedActions(error: Error): void {
-    const actions = [
-      '检查安装包是否完整',
-      '查看日志目录中的最新错误日志',
-      'Windows 环境下确认 VC++ 运行库已安装',
-      '重启应用并观察是否稳定复现',
+
     ]
 
     this.logger.info('建议的解决方案', {

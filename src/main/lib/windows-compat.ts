@@ -30,16 +30,7 @@ export class WindowsCompat {
     if (process.platform !== 'win32') return true
 
     try {
-      const WinReg = require('winreg') as typeof import('winreg')
-      const registryKey = new WinReg({
-        hive: WinReg.HKLM,
-        key: '\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64',
-      })
 
-      const items = await new Promise<Array<{ name: string; value: string }>>((resolve, reject) => {
-        registryKey.values((error, values) => {
-          if (error) {
-            reject(error)
             return
           }
           resolve(values ?? [])
@@ -70,8 +61,7 @@ export class WindowsCompat {
       })
       this.logger.info('VC++ 运行库安装完成', { stdout: stdout.trim(), stderr: stderr.trim() || undefined })
     } catch (error) {
-      this.logger.error('VC++ 运行库安装失败', normalizeError(error))
-      throw new Error(`VC++ 运行库安装失败：${error instanceof Error ? error.message : String(error)}`)
+
     }
   }
 
@@ -96,7 +86,6 @@ export class WindowsCompat {
     const os = await import('os')
     const issues: string[] = []
     const version = os.release()
-    const majorVersion = Number.parseInt(version.split('.')[0] ?? '0', 10)
 
     if (majorVersion < 10) {
       issues.push(`Windows 版本过低：${version}（需要 Windows 10+）`)
@@ -117,8 +106,7 @@ export class WindowsCompat {
       if (freeGb < 10) {
         issues.push(`磁盘空间不足：${freeGb.toFixed(1)}GB（建议至少 10GB）`)
       }
-    } else {
-      this.logger.warn('无法准确检测磁盘剩余空间')
+
     }
 
     return { meetsRequirements: issues.length === 0, issues }
