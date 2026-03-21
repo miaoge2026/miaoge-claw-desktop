@@ -1,5 +1,5 @@
 import { performance } from 'perf_hooks'
-import { logger } from './logger'
+import { logger, StructuredLogger } from './logger'
 
 /**
  * 性能指标类型

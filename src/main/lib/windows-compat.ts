@@ -21,7 +21,7 @@ export class WindowsCompat {
     try {
       // 检查注册表
       const registry = require('winreg')
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         registry({
           hive: registry.HKLM,
           key: 'SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64'
@@ -81,7 +81,8 @@ export class WindowsCompat {
       this.logger.info('✓ VC++运行库安装完成')
     } catch (error) {
       this.logger.error('VC++运行库安装失败:', error)
-      throw new Error(`VC++运行库安装失败: ${error.message}`)
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`VC++运行库安装失败: ${message}`)
     }
   }
 
@@ -129,7 +130,7 @@ export class WindowsCompat {
     // 检查Windows版本
     const os = require('os')
     const version = os.release()
-    const majorVersion = parseInt(version.split('.')[0])
+    const majorVersion = parseInt(version.split('.')[0] ?? '0', 10)
     
     if (majorVersion < 10) {
       issues.push(`Windows版本过低: ${version} (需要Windows 10+)`)
@@ -157,7 +158,7 @@ export class WindowsCompat {
         issues.push(`磁盘空间不足: ${freeSpace.toFixed(1)}GB (需要20GB以上)`)
       }
     } catch (error) {
-      this.logger.warn('检查磁盘空间失败:', error)
+      this.logger.warn('检查磁盘空间失败:', error instanceof Error ? error.message : String(error))
     }
 
     return {

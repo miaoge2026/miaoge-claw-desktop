@@ -1,6 +1,6 @@
 {
   "name": "easiest-claw-desktop",
-  "version": "1.0.10",
+  "version": "1.1.0",
   "description": "喵哥Claw Desktop - 强大的AI智能体桌面应用",
   "main": "out/main/index.js",
   "preload": "out/preload/index.js",
@@ -12,7 +12,11 @@
     "dev": "electron-vite dev",
     "bundle:openclaw": "node scripts/bundle-openclaw.mjs",
     "postinstall": "electron-builder install-app-deps",
-    "lint": "eslint \"src/main/**/*.ts\" \"src/preload/**/*.ts\" \"src/shared/**/*.ts\" \"electron.vite.config.ts\""
+    "lint": "eslint \"src/main/**/*.ts\" \"src/preload/**/*.ts\" \"src/shared/**/*.ts\" \"electron.vite.config.ts\"",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
+    "lint:all": "eslint \"src/**/*.{ts,tsx}\" \"electron.vite.config.ts\"",
+    "release": "node scripts/release.mjs",
+    "release:notes": "node scripts/extract-release-notes.mjs"
   },
   "build": {
     "appId": "com.miaoge.claw.desktop",
@@ -95,6 +99,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",
     "tw-animate-css": "^1.4.0",
-    "winreg": "^1.2.4"
+    "winreg": "^1.2.4",
+    "ws": "^8.18.3"
   }
 }
