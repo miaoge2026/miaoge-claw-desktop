@@ -1,6 +1,7 @@
 import type { Message } from "@/types"
 import type { AppState, AppAction } from "../app-types"
 import { extractTextContent, extractImageAttachments, uniqueId } from "../app-utils"
+import { appendConversationMessage, formatChatTimestamp, summarizeMessage, updateConversationPreview } from '../reducer-helpers'
 import { handleGatewayEvent } from "./gateway-event"
 
 export function handleChatAction(state: AppState, action: AppAction): AppState | null {
@@ -14,44 +15,31 @@ export function handleChatAction(state: AppState, action: AppAction): AppState |
         senderName: "\u6211",
         senderAvatar: "ZK",
         content,
-        timestamp: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+        timestamp: formatChatTimestamp(),
         read: true,
         type: "text",
         ...(attachments && attachments.length > 0 ? { attachments } : {}),
       }
-      const existing = state.messages[conversationId] ?? []
-      const updatedConvs = state.conversations.map((c) =>
-        c.id === conversationId
-          ? { ...c, lastMessage: content, lastMessageTime: newMsg.timestamp }
-          : c
-      )
       return {
-        ...state,
-        messages: { ...state.messages, [conversationId]: [...existing, newMsg] },
-        conversations: updatedConvs,
+        ...appendConversationMessage(state, conversationId, newMsg),
+        conversations: updateConversationPreview(state.conversations, conversationId, {
+          lastMessage: content,
+          lastMessageTime: newMsg.timestamp,
+        }),
       }
     }
     case "ADD_AGENT_MESSAGE": {
       const msg = action.payload
-      const existing = state.messages[msg.conversationId] ?? []
-      const updatedConvs = state.conversations.map((c) =>
-        c.id === msg.conversationId
-          ? {
-              ...c,
-              lastMessage: msg.content.slice(0, 100),
-              lastMessageSender: msg.senderName,
-              lastMessageTime: msg.timestamp,
-              unreadCount:
-                state.activeConversationId === msg.conversationId
-                  ? 0
-                  : c.unreadCount + 1,
-            }
-          : c
-      )
       return {
-        ...state,
-        messages: { ...state.messages, [msg.conversationId]: [...existing, msg] },
-        conversations: updatedConvs,
+        ...appendConversationMessage(state, msg.conversationId, msg),
+        conversations: updateConversationPreview(state.conversations, msg.conversationId, {
+          lastMessage: summarizeMessage(msg.content),
+          lastMessageSender: msg.senderName,
+          lastMessageTime: msg.timestamp,
+          unreadCount: state.activeConversationId === msg.conversationId
+            ? 0
+            : (state.conversations.find((conversation) => conversation.id === msg.conversationId)?.unreadCount ?? 0) + 1,
+        }),
       }
     }
     case "SET_THINKING": {
@@ -122,7 +110,7 @@ export function handleChatAction(state: AppState, action: AppAction): AppState |
       const lastMsg = converted[converted.length - 1]
       const updatedConvs = state.conversations.map((c) =>
         c.id === conversationId
-          ? { ...c, lastMessage: lastMsg.content.slice(0, 100), lastMessageTime: lastMsg.timestamp }
+          ? { ...c, lastMessage: summarizeMessage(lastMsg.content), lastMessageTime: lastMsg.timestamp }
           : c
       )
       return {

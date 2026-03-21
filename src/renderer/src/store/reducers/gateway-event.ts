@@ -2,6 +2,7 @@ import type { AppState } from "../app-types"
 import type { GatewayEvent } from "@/hooks/use-openclaw"
 import type { Message } from "@/types"
 import { extractTextContent, uniqueId, isRecord, resolveAgentIdFromPayload } from "../app-utils"
+import { formatChatTimestamp, summarizeMessage } from '../reducer-helpers'
 
 export function handleGatewayEvent(state: AppState, event: GatewayEvent): AppState {
   if (event.type !== "gateway.event") return state
@@ -23,8 +24,6 @@ export function handleGatewayEvent(state: AppState, event: GatewayEvent): AppSta
   const groupMatch = sessionKey.match(/^agent:[^:]+:group:(.+)$/)
   const conversationId = groupMatch ? groupMatch[1] : `conv-${agentId}`
 
-  const makeTimestamp = () =>
-    new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
 
   const findAgent = () => state.agents.find((a) => a.id === agentId)
 
@@ -50,8 +49,8 @@ export function handleGatewayEvent(state: AppState, event: GatewayEvent): AppSta
       c.id === conversationId
         ? {
             ...c,
-            lastMessage: lastContent.slice(0, 100),
-            lastMessageTime: makeTimestamp(),
+            lastMessage: summarizeMessage(lastContent),
+            lastMessageTime: formatChatTimestamp(),
             unreadCount:
               state.activeConversationId === conversationId ? 0 : c.unreadCount + 1,
           }
@@ -84,7 +83,7 @@ export function handleGatewayEvent(state: AppState, event: GatewayEvent): AppSta
           ? (payload.message as Record<string, unknown>).content ?? (payload.message as Record<string, unknown>).text
           : ""
       )
-      console.warn(`[Reducer:chat:delta] conversationId=${conversationId} agentId=${agentId} content=${content ? content.slice(0, 40) : "(empty)"}`)
+      // chat.delta payloads are cumulative assistant text; keep the latest snapshot only
       if (!content) return state
 
       const next = new Set(state.thinkingAgents)
@@ -115,7 +114,7 @@ export function handleGatewayEvent(state: AppState, event: GatewayEvent): AppSta
         senderAvatar: agent?.avatar ?? agentId.slice(0, 2).toUpperCase(),
         senderRole: agent?.role,
         content,
-        timestamp: makeTimestamp(),
+        timestamp: formatChatTimestamp(),
         read: state.activeConversationId === conversationId,
         type: "text",
       }
@@ -131,7 +130,7 @@ export function handleGatewayEvent(state: AppState, event: GatewayEvent): AppSta
           ? (payload.message as Record<string, unknown>).content ?? (payload.message as Record<string, unknown>).text
           : ""
       )
-      console.warn(`[Reducer:chat:final] conversationId=${conversationId} content=${content ? content.slice(0, 40) : "(empty)"} existingMsgs=${(state.messages[conversationId] ?? []).length} lastMsgId=${state.messages[conversationId]?.at(-1)?.id ?? "none"}`)
+      // chat.final should finalize the last streaming assistant message when present
       if (content) {
         const existing = state.messages[conversationId] ?? []
         const lastMsg = existing[existing.length - 1]
@@ -144,7 +143,7 @@ export function handleGatewayEvent(state: AppState, event: GatewayEvent): AppSta
           )
           const updatedConvs = state.conversations.map((c) =>
             c.id === conversationId
-              ? { ...c, lastMessage: content.slice(0, 100), lastMessageTime: makeTimestamp(),
+              ? { ...c, lastMessage: summarizeMessage(content), lastMessageTime: formatChatTimestamp(),
                   unreadCount: state.activeConversationId === conversationId ? 0 : c.unreadCount + 1 }
               : c
           )
