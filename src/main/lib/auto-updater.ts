@@ -1,6 +1,6 @@
 import { autoUpdater } from 'electron-updater'
-import { logger } from './logger'
-import { dialog, app } from 'electron'
+import { logger, StructuredLogger } from './logger'
+import { dialog } from 'electron'
 import { EventEmitter } from 'events'
 
 /**

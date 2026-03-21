@@ -116,7 +116,7 @@ function setupMenu(): void {
             dialog.showMessageBox({
               type: 'info',
               title: '关于喵哥Claw Desktop',
-              message: '喵哥Claw Desktop v1.0.9',
+              message: `喵哥Claw Desktop v${app.getVersion()}`,
               detail: '一个强大的AI智能体桌面应用。\n\n© 2026 喵哥Claw Desktop'
             })
           }
@@ -165,7 +165,7 @@ app.whenReady().then(() => {
   
   // 优化窗口创建
   app.on('browser-window-created', (_, window) => {
-    optimizer.warmUp(CONTENT_PRELOAD_URL)
+    optimizer.watchWindowShortcuts(window)
   })
 
   // 初始化应用
@@ -198,6 +198,6 @@ process.on('uncaughtException', (error) => {
   )
 })
 
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('未处理的Promise拒绝:', reason, promise)
+process.on('unhandledRejection', (reason) => {
+  logger.error('未处理的Promise拒绝', reason instanceof Error ? { message: reason.message, stack: reason.stack } : { reason: String(reason) })
 })
