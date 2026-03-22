@@ -21,6 +21,7 @@ import {
   isPortConflictPending,
   setPortConflictPending,
 } from '../gateway/bundled-process'
+import { logger } from '../lib/logger'
 
 // ── System environment detection ───────────────────────────────────────────────
 async function getExecutablePath(cmd: string): Promise<string | null> {
@@ -131,7 +132,7 @@ export const registerEnvHandlers = (ipcMain: IpcMain): void => {
   // ── 手动启动内置 openclaw（UI 触发，用于 gateway 崩溃后重启）────────────────
   ipcMain.handle('env:install-openclaw', async (event) => {
     const send = (step: string, status: 'running' | 'done' | 'error', detail?: string) => {
-      console.log(`[Openclaw:${step}][${status}] ${detail ?? ''}`)
+      logger.info(`[Openclaw:${step}][${status}] ${detail ?? ''}`)
       event.sender.send('env:install-progress', { step, status, detail })
     }
 
@@ -197,7 +198,7 @@ export const registerEnvHandlers = (ipcMain: IpcMain): void => {
     const { openclawDir, entryScript } = bundledOc
 
     const nodeBin = getBundledNodeBin()
-    console.log('[ResolveConflict] stopping external gateway...')
+    logger.info('[ResolveConflict] stopping external gateway...')
     await new Promise<void>((resolve) => {
       const child = spawn(nodeBin, [entryScript, 'gateway', 'stop'], {
         cwd: openclawDir,
@@ -226,9 +227,9 @@ export const registerEnvHandlers = (ipcMain: IpcMain): void => {
     const ready = await checkPortOpen(GATEWAY_PORT, 30_000)
     if (ready) {
       setGatewaySource('bundled')
-      console.log('[ResolveConflict] bundled gateway ready')
+      logger.info('[ResolveConflict] bundled gateway ready')
     } else {
-      console.warn('[ResolveConflict] bundled gateway not ready within 30s')
+      logger.warn('[ResolveConflict] bundled gateway not ready within 30s')
     }
 
     await restartRuntime()
