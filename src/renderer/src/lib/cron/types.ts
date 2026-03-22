@@ -244,7 +244,8 @@ const restoreRemovedJobsBestEffort = async (
   try {
     await restoreCronJobs(client, removedJobs);
   } catch (restoreErr) {
-    console.error("Failed to restore cron jobs after partial deletion failure.", restoreErr);
+    // 使用 console.error 因为这是在 renderer 进程，logger 可能不可用
+console.error("Failed to restore cron jobs after partial deletion failure.", restoreErr);
   }
 };
 
