@@ -6,6 +6,7 @@ import path from 'node:path'
 import { gw } from './gw'
 import { isRecord, readOpenclawConfig as readConfig, writeOpenclawConfig as writeConfig } from '../lib/openclaw-config'
 import { getBundledNpmBin } from '../lib/openclaw-paths'
+import { logger } from '../lib/logger'
 
 const CLAWHUB_REGISTRY = process.env.CLAWHUB_REGISTRY || 'https://clawhub.ai'
 
@@ -33,7 +34,7 @@ const CACHE_TTL_SEARCH  = 5 * 60_000   // 5 min for search
 /** Helper: make a JSON GET request to the ClawHub API */
 async function clawHubGet<T>(path: string): Promise<T> {
   const url = `${CLAWHUB_REGISTRY}${path}`
-  console.log(`[ClawHub] GET ${url}`)
+  logger.info(`[ClawHub] GET ${url}`)
   return new Promise<T>((resolve, reject) => {
     const request = net.request({ url, method: 'GET' })
     request.setHeader('Accept', 'application/json')
@@ -41,7 +42,7 @@ async function clawHubGet<T>(path: string): Promise<T> {
 
     let body = ''
     request.on('response', (response) => {
-      console.log(`[ClawHub] ${response.statusCode} ${url}`)
+      logger.info(`[ClawHub] ${response.statusCode} ${url}`)
       if (response.statusCode < 200 || response.statusCode >= 300) {
         response.on('data', (chunk) => { body += chunk.toString() })
         response.on('end', () => reject(new Error(`HTTP ${response.statusCode}: ${body}`)))
@@ -54,7 +55,7 @@ async function clawHubGet<T>(path: string): Promise<T> {
       })
     })
     request.on('error', (err) => {
-      console.error(`[ClawHub] Error ${url}:`, err.message)
+      logger.error(`[ClawHub] Error ${url}:`, err.message)
       reject(err)
     })
     request.end()
@@ -104,7 +105,7 @@ export const registerSkillsHandlers = (ipcMain: IpcMain): void => {
       const cacheKey = `explore:${limit}:${params.cursor ?? ''}`
       const cached = getCached<{ ok: true; items: unknown[]; nextCursor: string | null }>(cacheKey)
       if (cached) {
-        console.log(`[ClawHub] explore cache hit (${cached.items.length} items)`)
+        logger.info(`[ClawHub] explore cache hit (${cached.items.length} items)`)
         return cached
       }
       // Use search with broad queries to populate the "explore" view
@@ -122,7 +123,7 @@ export const registerSkillsHandlers = (ipcMain: IpcMain): void => {
           }
         } catch { /* skip failed queries */ }
       }
-      console.log(`[ClawHub] explore fetched ${allItems.size} unique items via search`)
+      logger.info(`[ClawHub] explore fetched ${allItems.size} unique items via search`)
       const result = {
         ok: true as const,
         items: [...allItems.values()].slice(0, limit),

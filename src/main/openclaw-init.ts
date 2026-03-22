@@ -281,7 +281,7 @@ export function sanitizeOpenClawConfig(): void {
   if (toolsModified) {
     config = { ...config, tools }
     modified = true
-    console.log('[Sanitize] set tools.profile=full, tools.sessions.visibility=all')
+    logger.info('[Sanitize] set tools.profile=full, tools.sessions.visibility=all')
   }
 
   // ── commands.restart = true（优雅重载支持）──────────────────────────────────
@@ -289,7 +289,7 @@ export function sanitizeOpenClawConfig(): void {
   if (commands.restart !== true) {
     config = { ...config, commands: { ...commands, restart: true } }
     modified = true
-    console.log('[Sanitize] enabled commands.restart')
+    logger.info('[Sanitize] enabled commands.restart')
   }
 
   // ── skills: 删除无效根键 ─────────────────────────────────────────────────────
@@ -301,7 +301,7 @@ export function sanitizeOpenClawConfig(): void {
       if (key in skillsObj) {
         delete skillsObj[key]
         skillsModified = true
-        console.log(`[Sanitize] removed invalid field skills.${key}`)
+        logger.info(`[Sanitize] removed invalid field skills.${key}`)
       }
     }
     if (skillsModified) {
@@ -315,7 +315,7 @@ export function sanitizeOpenClawConfig(): void {
     const { controlUi: _removed, ...rest } = config
     config = rest
     modified = true
-    console.log('[Sanitize] removed invalid root key controlUi')
+    logger.info('[Sanitize] removed invalid root key controlUi')
   }
 
   // ── agents.list[*] 中的无效字段（如 runtime）────────────────────────────────
@@ -334,7 +334,7 @@ export function sanitizeOpenClawConfig(): void {
         const cleaned = { ...agentObj }
         for (const k of keysToRemove) {
           delete cleaned[k]
-          console.log(`[Sanitize] removed invalid field in agents.list: ${k}`)
+          logger.info(`[Sanitize] removed invalid field in agents.list: ${k}`)
         }
         return cleaned
       })
@@ -347,6 +347,6 @@ export function sanitizeOpenClawConfig(): void {
 
   if (modified) {
     writeOpenclawConfig(config)
-    console.log('[Sanitize] openclaw.json cleanup done')
+    logger.info('[Sanitize] openclaw.json cleanup done')
   }
 }

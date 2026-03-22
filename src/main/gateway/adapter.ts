@@ -9,6 +9,7 @@ import {
   buildDeviceAuthPayload,
   type DeviceIdentity,
 } from './device-identity'
+import { logger } from '../lib/logger'
 
 const CONNECT_TIMEOUT_MS = 8_000
 const REQUEST_TIMEOUT_MS = 15_000
@@ -195,14 +196,14 @@ export class GatewayAdapter {
     if (this.deviceIdentityPath && !this.deviceIdentity) {
       try {
         this.deviceIdentity = loadOrCreateDeviceIdentity(this.deviceIdentityPath)
-        console.log(`[GatewayAdapter] Device identity ready: ${this.deviceIdentity.deviceId.slice(0, 8)}…`)
+        logger.info(`[GatewayAdapter] Device identity ready: ${this.deviceIdentity.deviceId.slice(0, 8)}…`)
       } catch (e) {
-        console.warn('[GatewayAdapter] Could not load device identity, will connect without device auth:', e)
+        logger.warn('[GatewayAdapter] Could not load device identity, will connect without device auth:', e)
       }
     }
 
     const settings = this.loadGatewaySettings()
-    console.log(`[GatewayAdapter] Connecting to ${settings.url} (attempt ${this.reconnectAttempt + 1})`)
+    logger.info(`[GatewayAdapter] Connecting to ${settings.url} (attempt ${this.reconnectAttempt + 1})`)
     this.connectionEpoch = randomUUID()
     // 不设置 origin：Node.js ws 库默认不发送 Origin 头，
     // 主动设置 Origin 会让 gateway 误判为浏览器客户端，导致 loopback 自动配对被阻止
@@ -240,7 +241,7 @@ export class GatewayAdapter {
             const nonce = isObject(parsed.payload)
               ? (parsed.payload.nonce as string | undefined)
               : undefined
-            console.log(
+            logger.info(
               `[GatewayAdapter] Received connect.challenge${nonce ? ' (nonce present, using device auth)' : ' (no nonce, legacy token-only)'}`
             )
             this.sendConnectRequest(settings.token, nonce)
@@ -260,7 +261,7 @@ export class GatewayAdapter {
         if (!this.handleResponse(parsed)) return
         if (parsed.id === this.connectRequestId) {
           if (parsed.ok) {
-            console.log('[GatewayAdapter] Connected successfully')
+            logger.info('[GatewayAdapter] Connected successfully')
             this.reconnectAttempt = 0
             this.skipDeviceAuth = false  // 成功后重置，下次允许再用设备认证
             this.updateStatus('connected', null)
