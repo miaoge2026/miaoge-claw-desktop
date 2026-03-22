@@ -1,6 +1,6 @@
 {
   "name": "easiest-claw-desktop",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "喵哥Claw Desktop - 强大的AI智能体桌面应用",
   "main": "out/main/index.js",
   "preload": "out/preload/index.js",
