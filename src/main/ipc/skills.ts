@@ -132,7 +132,7 @@ export const registerSkillsHandlers = (ipcMain: IpcMain): void => {
       setCache(cacheKey, result, CACHE_TTL_EXPLORE)
       return result
     } catch (err) {
-      console.error(`[ClawHub] explore error:`, err instanceof Error ? err.message : err)
+      logger.error(`[ClawHub] explore error:`, err instanceof Error ? err.message : err)
       return { ok: false, error: err instanceof Error ? err.message : 'Failed to fetch skills' }
     }
   })

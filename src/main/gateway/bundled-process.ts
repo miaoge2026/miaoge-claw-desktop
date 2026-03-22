@@ -300,7 +300,7 @@ export async function stopGatewayGracefully(timeoutMs = 5000): Promise<void> {
     const forceKillTimer = setTimeout(() => {
       if (!exited) {
         logger.warn(`[Gateway] not exited within ${timeoutMs}ms, force-killing (pid=${pid ?? 'unknown'})`)
-        console.warn(`[Gateway] force-killing pid=${pid ?? 'unknown'}`)
+        logger.warn(`[Gateway] force-killing pid=${pid ?? 'unknown'}`)
         if (pid) {
           try {
             if (process.platform === 'win32') {
@@ -389,7 +389,7 @@ export function forkOpenclawGateway(entryScript: string, openclawDir: string, to
       }, AUTO_RESTART_DELAY_MS)
     } else {
       logger.warn(`[Gateway] max auto-restart reached (${MAX_AUTO_RESTARTS}), giving up`)
-      console.warn(`[Gateway] max auto-restart reached (${MAX_AUTO_RESTARTS}), giving up`)
+      logger.warn(`[Gateway] max auto-restart reached (${MAX_AUTO_RESTARTS}), giving up`)
     }
   })
 
@@ -482,7 +482,7 @@ export async function autoSpawnBundledOpenclaw(): Promise<void> {
     logger.info('[AutoSpawn] bundled gateway ready')
   } else {
     logger.warn('[AutoSpawn] bundled gateway not ready within 90s, continuing (adapter will retry)')
-    console.warn('[AutoSpawn] bundled gateway not ready within 90s, continuing')
+    logger.warn('[AutoSpawn] bundled gateway not ready within 90s, continuing')
   }
 }
 
@@ -490,7 +490,7 @@ export async function restartBundledGateway(): Promise<boolean> {
   const bundledOc = getBundledOpenclaw()
   if (!bundledOc) {
     logger.warn('[RestartBundled] bundled openclaw dir not found')
-    console.warn('[RestartBundled] bundled openclaw dir not found')
+    logger.warn('[RestartBundled] bundled openclaw dir not found')
     return false
   }
   const { openclawDir, entryScript } = bundledOc
@@ -512,7 +512,7 @@ export async function restartBundledGateway(): Promise<boolean> {
     logger.info('[RestartBundled] gateway ready')
   } else {
     logger.warn('[RestartBundled] gateway not ready within 90s')
-    console.warn('[RestartBundled] gateway not ready within 90s')
+    logger.warn('[RestartBundled] gateway not ready within 90s')
   }
   return ready
 }
