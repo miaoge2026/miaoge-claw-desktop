@@ -342,7 +342,8 @@ const formatJson = (value: unknown): string => {
     return JSON.stringify(value, null, 2);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to stringify tool args.";
-    console.warn(message);
+    // 使用 console.warn 因为这是在 renderer 进程，logger 可能不可用
+console.warn(message);
     return String(value);
   }
 };

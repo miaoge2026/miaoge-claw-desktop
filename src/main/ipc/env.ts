@@ -211,7 +211,7 @@ export const registerEnvHandlers = (ipcMain: IpcMain): void => {
 
     const portClosed = await waitForPortClosed(GATEWAY_PORT, 10_000)
     if (!portClosed) {
-      console.warn('[ResolveConflict] port not released within 10s, retrying...')
+      logger.warn('[ResolveConflict] port not released within 10s, retrying...')
       await new Promise(r => setTimeout(r, 2000))
     }
 

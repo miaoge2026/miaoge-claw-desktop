@@ -6,6 +6,7 @@ import { extractTextContent, uniqueId, isRecord, resolveAgentIdFromPayload } fro
 export function handleGatewayEvent(state: AppState, event: GatewayEvent): AppState {
   if (event.type !== "gateway.event") return state
   if (!isRecord(event.payload)) {
+    // 使用 console.warn 因为这是在 renderer 进程，logger 可能不可用
     console.warn(`[Reducer:GATEWAY_EVENT] payload is not a record: ${typeof event.payload}`)
     return state
   }
@@ -84,7 +85,8 @@ export function handleGatewayEvent(state: AppState, event: GatewayEvent): AppSta
           ? (payload.message as Record<string, unknown>).content ?? (payload.message as Record<string, unknown>).text
           : ""
       )
-      console.warn(`[Reducer:chat:delta] conversationId=${conversationId} agentId=${agentId} content=${content ? content.slice(0, 40) : "(empty)"}`)
+      // 使用 console.warn 因为这是在 renderer 进程，logger 可能不可用
+console.warn(`[Reducer:chat:delta] conversationId=${conversationId} agentId=${agentId} content=${content ? content.slice(0, 40) : "(empty)"}`)
       if (!content) return state
 
       const next = new Set(state.thinkingAgents)
@@ -131,7 +133,8 @@ export function handleGatewayEvent(state: AppState, event: GatewayEvent): AppSta
           ? (payload.message as Record<string, unknown>).content ?? (payload.message as Record<string, unknown>).text
           : ""
       )
-      console.warn(`[Reducer:chat:final] conversationId=${conversationId} content=${content ? content.slice(0, 40) : "(empty)"} existingMsgs=${(state.messages[conversationId] ?? []).length} lastMsgId=${state.messages[conversationId]?.at(-1)?.id ?? "none"}`)
+      // 使用 console.warn 因为这是在 renderer 进程，logger 可能不可用
+console.warn(`[Reducer:chat:final] conversationId=${conversationId} content=${content ? content.slice(0, 40) : "(empty)"} existingMsgs=${(state.messages[conversationId] ?? []).length} lastMsgId=${state.messages[conversationId]?.at(-1)?.id ?? "none"}`)
       if (content) {
         const existing = state.messages[conversationId] ?? []
         const lastMsg = existing[existing.length - 1]

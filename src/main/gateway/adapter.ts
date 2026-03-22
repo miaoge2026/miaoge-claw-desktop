@@ -281,14 +281,14 @@ export class GatewayAdapter {
           // 注意：网关在返回错误后会关闭连接（1008），不能在当前 ws 上重发；
           // 设置持久化 skipDeviceAuth 标志，由重连周期自动使用 token-only
           if (!this.skipDeviceAuth && (DEVICE_AUTH_ERROR_CODES.has(code) || DEVICE_AUTH_ERROR_CODES.has(detailCode))) {
-            console.warn(`[GatewayAdapter] Device auth failed (${code}), next reconnect will use token-only`)
+            logger.warn(`[GatewayAdapter] Device auth failed (${code}), next reconnect will use token-only`)
             this.skipDeviceAuth = true
             this.connectRequestId = null
             // 不在此处重发：gateway 将以 1008 关闭连接，触发正常重连流程
             return
           }
 
-          console.error(`[GatewayAdapter] Connect rejected: ${code} ${msg}`, parsed.error?.details)
+          logger.error(`[GatewayAdapter] Connect rejected: ${code} ${msg}`, parsed.error?.details)
           settle(() => {
             ws.close(1011, 'connect failed')
             reject(new Error(`Connect rejected: ${code} ${msg}`))
@@ -314,7 +314,7 @@ export class GatewayAdapter {
           const detail = (error as NodeJS.ErrnoException).code
             ? `${(error as NodeJS.ErrnoException).code} ${error.message}`.trim()
             : error.message || String(error)
-          console.error(`[GatewayAdapter] WebSocket error: ${detail}`)
+          logger.error(`[GatewayAdapter] WebSocket error: ${detail}`)
           settle(() => reject(new Error(`Connect failed: ${detail}`)))
         }
       })
@@ -322,7 +322,7 @@ export class GatewayAdapter {
       this.connectionEpoch = null
       const reason = err instanceof Error ? err.message : 'connect_error'
       if (this.reconnectAttempt <= 1) {
-        console.error(`[GatewayAdapter] Connection failed: ${reason}`)
+        logger.error(`[GatewayAdapter] Connection failed: ${reason}`)
       }
       this.updateStatus('error', reason)
       this.scheduleReconnect()
@@ -391,7 +391,7 @@ export class GatewayAdapter {
           nonce,
         }
       } catch (e) {
-        console.warn('[GatewayAdapter] Failed to build device auth payload, connecting without device:', e)
+        logger.warn('[GatewayAdapter] Failed to build device auth payload, connecting without device:', e)
         device = undefined
       }
     }
