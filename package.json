@@ -68,7 +68,7 @@
     "electron": "^41.0.3",
     "electron-builder": "^26.8.1",
     "electron-vite": "^2.3.0",
-    "eslint": "^9.0.0",
+    "eslint": "^10.1.0",
     "eslint-plugin-react": "^7.37.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
